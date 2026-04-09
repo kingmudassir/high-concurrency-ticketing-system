@@ -1,202 +1,107 @@
-"use client";
-
-import { useEffect, useState } from "react";
+import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardFooter, 
+  CardHeader, 
+  CardTitle 
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { CalendarDays, Ticket, ArrowRight } from "lucide-react";
 
-type Event = {
-  id: string;
-  title: string;
-  startDate: string;
-  price: number;
-  totalTickets: number;
-  availableTickets: number;
-  description: string | null;
-};
+async function getEvents() {
+  const events = await prisma.event.findMany({
+    orderBy: { startDate: "asc" },
+  });
+  return events.map(e => ({
+    ...e,
+    availableTickets: Math.max(0, e.totalTickets - e.ticketsSold),
+  }));
+}
 
-function EventCardSkeleton() {
+export default async function EventsPage() {
+  const events = await getEvents();
+
   return (
-    <div className="border border-gray-100 rounded-2xl p-6 animate-pulse">
-      <div className="h-5 bg-gray-200 rounded w-3/4 mb-3" />
-      <div className="h-4 bg-gray-100 rounded w-1/2 mb-2" />
-      <div className="h-4 bg-gray-100 rounded w-2/3 mb-6" />
-      <div className="h-4 bg-gray-100 rounded w-full mb-2" />
-      <div className="h-4 bg-gray-100 rounded w-5/6 mb-6" />
-      <div className="flex justify-between items-center">
-        <div className="h-6 bg-gray-200 rounded w-16" />
-        <div className="h-9 bg-gray-200 rounded w-28" />
+    <main className="min-h-screen bg-[slate-50/50]">
+      {/* Hero Section - Makes it feel like a real app */}
+      <div className="border-b bg-white">
+        <div className="container mx-auto py-16 px-6">
+          <Badge variant="outline" className="mb-4 border-blue-200 bg-blue-50 text-blue-700">
+            Platform live
+          </Badge>
+          <h1 className="text-5xl font-black tracking-tight text-slate-900 lg:text-6xl">
+            Experience <span className="text-blue-600">Everything.</span>
+          </h1>
+          <p className="mt-4 max-w-xl text-lg text-muted-foreground">
+            Don't just watch from the sidelines. Secure your spot at the most exclusive events.
+          </p>
+        </div>
       </div>
-    </div>
-  );
-}
 
-function AvailabilityBadge({ available, total }: { available: number; total: number }) {
-  const pct = total > 0 ? available / total : 0;
-
-  if (available === 0) {
-    return (
-      <span className="text-xs font-semibold bg-red-50 text-red-600 px-2.5 py-1 rounded-full">
-        Sold out
-      </span>
-    );
-  }
-
-  if (pct < 0.15) {
-    return (
-      <span className="text-xs font-semibold bg-orange-50 text-orange-600 px-2.5 py-1 rounded-full">
-        Almost gone — {available} left
-      </span>
-    );
-  }
-
-  return (
-    <span className="text-xs font-semibold bg-green-50 text-green-700 px-2.5 py-1 rounded-full">
-      {available} tickets left
-    </span>
-  );
-}
-
-export default function EventsPage() {
-  const [events, setEvents] = useState<Event[]>([]);
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
-
-  const fetchEvents = () => {
-    setStatus("loading");
-    fetch("/api/events")
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch");
-        return res.json();
-      })
-      .then((data) => {
-        setEvents(data);
-        setStatus("success");
-      })
-      .catch(() => setStatus("error"));
-  };
-
-  useEffect(() => {
-    fetchEvents();
-  }, []);
-
-  return (
-    <main className="min-h-screen bg-white">
-      {/* ─── Navbar ─── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-sm border-b border-gray-100">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="text-xl font-extrabold tracking-tight text-gray-900">
-            ticket<span className="text-blue-600">rush</span>
-          </Link>
-          <div className="flex items-center gap-6">
-            <Link href="/events" className="text-sm font-semibold text-gray-900">
-              Events
-            </Link>
-            <Link
-              href="#"
-              className="text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+      <div className="container mx-auto py-12 px-6">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+          {events.map((event) => (
+            <Card 
+              key={event.id} 
+              className="group relative flex flex-col overflow-hidden border-slate-200 transition-all duration-300 hover:-translate-y-1 hover:border-blue-400 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
             >
-              Login
-            </Link>
-            <Link
-              href="#"
-              className="text-sm font-medium bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              Sign up
-            </Link>
-          </div>
-        </div>
-      </nav>
-
-      <div className="max-w-6xl mx-auto px-6 pt-28 pb-16">
-        <div className="mb-10">
-          <h1 className="text-4xl font-extrabold text-gray-900 mb-2">All Events</h1>
-          <p className="text-gray-500">Showing real-time availability. Grab yours before it&apos;s gone.</p>
-        </div>
-
-        {/* Loading state */}
-        {status === "loading" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <EventCardSkeleton key={i} />
-            ))}
-          </div>
-        )}
-
-        {/* Error state */}
-        {status === "error" && (
-          <div className="text-center py-24 bg-red-50 rounded-2xl">
-            <p className="text-red-600 font-semibold text-lg mb-2">Failed to load events</p>
-            <p className="text-red-400 text-sm mb-6">Something went wrong on our end.</p>
-            <button
-              onClick={fetchEvents}
-              className="bg-red-600 text-white font-medium px-6 py-2.5 rounded-lg hover:bg-red-700 active:scale-95 transition-all"
-            >
-              Retry
-            </button>
-          </div>
-        )}
-
-        {/* Empty state */}
-        {status === "success" && events.length === 0 && (
-          <div className="text-center py-24 bg-gray-50 rounded-2xl">
-            <p className="text-gray-600 font-semibold text-lg mb-1">No events available</p>
-            <p className="text-gray-400 text-sm">Check back soon — new events drop regularly.</p>
-          </div>
-        )}
-
-        {/* Events grid */}
-        {status === "success" && events.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {events.map((event) => (
-              <Link
-                key={event.id}
-                href={`/events/${event.id}`}
-                className="group block border border-gray-100 rounded-2xl p-6 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <h2 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors leading-tight pr-2">
-                    {event.title}
-                  </h2>
-                  <AvailabilityBadge
-                    available={event.availableTickets}
-                    total={event.totalTickets}
-                  />
+              {/* Subtle Gradient Overlay on Hover */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+              
+              <CardHeader className="relative z-10">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <CardTitle className="text-2xl font-bold tracking-tight group-hover:text-blue-600 transition-colors">
+                      {event.title}
+                    </CardTitle>
+                    <CardDescription className="flex items-center gap-1.5 font-medium text-slate-500">
+                      <CalendarDays className="h-4 w-4" />
+                      {new Date(event.startDate).toLocaleDateString('en-US', { 
+                        month: 'short', day: 'numeric', year: 'numeric' 
+                      })}
+                    </CardDescription>
+                  </div>
                 </div>
+              </CardHeader>
 
-                {event.description && (
-                  <p className="text-sm text-gray-500 mb-4 line-clamp-2 leading-relaxed">
-                    {event.description}
-                  </p>
-                )}
+              <CardContent className="relative z-10 flex-1">
+                <p className="text-sm leading-relaxed text-slate-600 line-clamp-3">
+                  {event.description}
+                </p>
+              </CardContent>
 
-                <div className="text-sm text-gray-400 mb-5">
-                  📅{" "}
-                  {new Date(event.startDate).toLocaleDateString("en-US", {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </div>
-
-                <div className="flex justify-between items-center pt-4 border-t border-gray-50">
-                  <span className="text-2xl font-extrabold text-gray-900">
+              <CardFooter className="relative z-10 flex items-center justify-between border-t bg-slate-50/50 p-6">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Price</p>
+                  <p className="text-2xl font-black text-slate-900">
                     ${(event.price / 100).toFixed(2)}
-                  </span>
-                  <span
-                    className={`text-sm font-semibold px-4 py-2 rounded-lg transition-colors ${
-                      event.availableTickets === 0
-                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                        : "bg-blue-600 text-white group-hover:bg-blue-700"
-                    }`}
-                  >
-                    {event.availableTickets === 0 ? "Sold out" : "View Tickets"}
-                  </span>
+                  </p>
                 </div>
-              </Link>
-            ))}
-          </div>
-        )}
+                
+                <Button 
+                  asChild 
+                  size="lg"
+                  variant={event.availableTickets === 0 ? "secondary" : "default"}
+                  className="rounded-full shadow-sm transition-all group-hover:shadow-md"
+                >
+                  <Link href={`/events/${event.id}`}>
+                    {event.availableTickets === 0 ? (
+                      "Sold Out"
+                    ) : (
+                      <>
+                        Book Now <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                      </>
+                    )}
+                  </Link>
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
       </div>
     </main>
   );

@@ -8,7 +8,7 @@ const CACHE_TTL_SECONDS = 30;
 type RedisClient = ReturnType<typeof createClient>;
 
 let redisClient: RedisClient | null = null;
-let redisUnavailable = false; // once failed, never try again this process lifetime
+let redisUnavailable = false;
 
 async function getRedisClient(): Promise<RedisClient | null> {
   if (redisUnavailable) return null;
@@ -23,7 +23,6 @@ async function getRedisClient(): Promise<RedisClient | null> {
     },
   });
 
-  // Suppress the error event so it doesn't crash/spam
   client.on("error", () => {});
 
   try {
@@ -32,7 +31,7 @@ async function getRedisClient(): Promise<RedisClient | null> {
     return client;
   } catch {
     redisUnavailable = true;
-    client.destroy(); // fully tear down, no lingering listeners
+    client.destroy();
     return null;
   }
 }
