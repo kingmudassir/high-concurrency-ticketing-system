@@ -11,13 +11,14 @@ model Event {
   id           String   @id @default(cuid())
   title        String
   description  String?
-  price        Int 
+  location     String
+  price        Int
   totalTickets Int
   ticketsSold  Int      @default(0)
   startDate    DateTime
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  tickets      Ticket[] 
+  tickets      Ticket[]
 }
 
 // The actual Ticket record
@@ -25,7 +26,8 @@ model Ticket {
   id        String   @id @default(cuid())
   eventId   String
   event     Event    @relation(fields: [eventId], references: [id])
-  userId    String 
-  status    String   @default("CONFIRMED")
+  userId    String // In a real app, this links to a User model
+  status    String   @default("PENDING") // PENDING, CONFIRMED, CANCELLED
+  expiresAt DateTime
   createdAt DateTime @default(now())
 }

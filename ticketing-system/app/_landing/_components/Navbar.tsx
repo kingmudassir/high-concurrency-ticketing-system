@@ -16,9 +16,11 @@ export default async function Navbar() {
 
         {/* Right side of navbar */}
         <div className="flex justify-center items-center space-x-5 text-lg text-gray-500">
-            <div className="cursor-pointer hover:text-gray-700">
+            <Link 
+            href={'/events'}
+            className="cursor-pointer hover:text-gray-700">
             Events
-            </div>
+            </Link>
 
             <div className="cursor-pointer hover:text-gray-700">
             Login

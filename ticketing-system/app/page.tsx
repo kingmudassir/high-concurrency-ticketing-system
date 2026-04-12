@@ -3,7 +3,7 @@ import Features from "./_landing/_components/Features"
 import Hero from "./_landing/_components/Hero"
 import Stats from "./_landing/_components/Stats"
 
-function page() {
+export default async function page() {
   return (
     <div className="">
       <Hero />
@@ -13,5 +13,3 @@ function page() {
     </div>
   )
 }
-
-export default page
