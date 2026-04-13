@@ -9,7 +9,6 @@ interface PageProps {
 
 export default async function Page({ params }: PageProps) {
     const { id } = await params;
-
     const eventData = await getEventById(id);
 
     if (!eventData) {
@@ -17,9 +16,11 @@ export default async function Page({ params }: PageProps) {
     }
 
     return (
-        <>
+        /* We use a div instead of a fragment to control the page lifecycle 
+           and provide enough bottom space for the sticky sidebar. */
+        <div className="pb-24">
             <Back />
             <Ticket event={eventData} />
-        </>
+        </div>
     );
 }
