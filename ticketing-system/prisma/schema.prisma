@@ -33,6 +33,10 @@ model User {
   tickets       Ticket[]
   authAuditLogs AuthAuditLog[]
   sessions      Session[]
+
+  //Verification
+  otp          String? // Store the hashed or plain 6-digit code
+  otpExpiresAt DateTime? // Crucial for security
 }
 
 // New: The Session Table for Refresh Token Rotation

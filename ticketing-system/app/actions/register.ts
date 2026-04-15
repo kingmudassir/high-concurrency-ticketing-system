@@ -1,13 +1,16 @@
+"use server"
+
 import { prisma } from "@/lib/prisma"
 import { hash } from "bcryptjs"
 import { RegisterSchema } from "@/lib/zod" // Import your strict schema
+import { setVerificationCookie } from "@/lib/cookies/verification-cookie";
+import { sendVerificationEmail } from "@/lib/mail";
+import { generateAndSaveOTP } from "./generate-otp";
 
 export async function registerUser(formData: FormData) {
     const rawData = Object.fromEntries(formData.entries());
-
     const validatedFields = RegisterSchema.safeParse(rawData);
 
-    // 3. If validation fails, return EVERY error found
     if (!validatedFields.success) {
         return {
             success: false,
@@ -16,38 +19,73 @@ export async function registerUser(formData: FormData) {
         }
     }
 
-    // 4. If we get here, the data is CLEAN and SAFE
     const { email, password, firstName, lastName } = validatedFields.data;
-    const name = `${firstName} ${lastName}`; // Already trimmed by Zod!
+    const name = `${firstName} ${lastName}`;
 
     try {
-        // Check: Does user exist?
-        const existingUser = await prisma.user.findUnique({
-            where: { email }
-        })
+        const existingUser = await prisma.user.findUnique({ where: { email } });
 
-        if (existingUser) {
+        // CASE 1: User exists AND is already verified
+        if (existingUser && existingUser.emailVerified) {
             return {
                 success: false,
-                message: "An account with this email already exists."
+                message: "An account with this email already exists and is verified."
             }
         }
 
-        const hashPassword = await hash(password, 12)
+        const hashPassword = await hash(password, 12);
 
-        await prisma.user.create({
-            data: {
-                name,
-                email,
-                password: hashPassword,
-                emailVerified: new Date()
+        // CASE 2: User doesn't exist OR exists but isn't verified
+        await prisma.$transaction(async (tx) => {
+            
+            if (!existingUser) {
+                // Create user only if they don't exist
+                await tx.user.create({
+                    data: {
+                        name,
+                        email,
+                        password: hashPassword,
+                        emailVerified: null
+                    }
+                });
+            } else {
+                // If they exist but aren't verified, update their password (optional)
+                // and name in case they changed them on the second attempt
+                await tx.user.update({
+                    where: { email },
+                    data: { name, password: hashPassword }
+                });
             }
-        })
 
-        return { success: true, message: "User registered successfully!" }
+            // Generate/Save OTP, Send Email, and Set Cookie
+            const otpResponse = await generateAndSaveOTP(email, tx);
+            
+            if (!otpResponse.success || !otpResponse.otp) {
+                throw new Error("OTP_GENERATION_FAILED");
+            }
 
-    } catch (error) {
-        console.error("Registration Error:", error);
-        return { success: false, message: "A server error occurred." };
+            const emailResult = await sendVerificationEmail(email, otpResponse.otp);
+
+            if (!emailResult.success) {
+                throw new Error("EMAIL_SENDING_FAILED"); 
+            }
+
+            await setVerificationCookie(email);
+        }, { timeout: 15000 });
+
+        return { 
+            success: true, 
+            message: "Verification email sent!",
+            email // Return email for redirect logic
+        };
+
+    } catch (error: any) {
+        console.error("Registration/Verification Error:", error.message);
+        
+        if (error.message === "EMAIL_SENDING_FAILED") {
+            return { success: false, message: "Could not send verification email." };
+        }
+        
+        return { success: false, message: "An error occurred. Please try again." };
     }
 }
