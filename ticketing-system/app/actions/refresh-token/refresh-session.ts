@@ -8,75 +8,73 @@ import { generateRefreshTokens, signAccessToken } from "@/lib/cookies/auth-cooki
 
 const REFRESH_SECRET = process.env.REFRESH_SECRET!;
 
+const FAILURE = { success: false as const, accessToken: null, refreshToken: null };
+
 export async function refreshSession() {
     try {
         const cookieStore = await cookies();
         const oldRefreshToken = cookieStore.get("refresh_token")?.value;
 
         if (!oldRefreshToken) {
-            return { success: false as const, accessToken: null };
+            return FAILURE;
         }
 
-        // 1. Decode the token to get the direct database pointers
+        // Gate 1: JWT signature + expiry
         let decoded: { userId: string; sessionId: string };
-        // Add these logs inside refreshSession try block:
-
-        // Gate 1: Decode
         try {
-            decoded = jwt.verify(oldRefreshToken, REFRESH_SECRET) as any;
-        } catch (err) {
-            console.log("❌ Gate 1: JWT Verify Failed (Secret mismatch or Token Expired)");
-            return { success: false, accessToken: null };
+            decoded = jwt.verify(oldRefreshToken, REFRESH_SECRET) as { userId: string; sessionId: string };
+        } catch {
+            return FAILURE;
         }
 
-        // Gate 2: Database Lookup
+        // Gate 2: Session must exist in DB
         const currentSession = await prisma.session.findUnique({
             where: { id: decoded.sessionId },
-            include: { user: { select: { id: true, role: true } } }
+            include: { user: { select: { id: true, role: true } } },
         });
+
         if (!currentSession) {
-            console.log("❌ Gate 2: Session not found in DB for ID:", decoded.sessionId);
-            return { success: false, accessToken: null };
+            return FAILURE;
         }
 
-        // Gate 3: Expiry
+        // Gate 3: Session row must not be expired
         if (currentSession.expiresAt < new Date()) {
-            console.log("❌ Gate 3: Session row expired in DB");
-            return { success: false, accessToken: null };
+            return FAILURE;
         }
 
-        // Gate 4: Bcrypt Compare
+        // Gate 4: Token must match the stored hash (guards against token theft + rotation)
         const isMatch = await compare(oldRefreshToken, currentSession.refreshTokenHash);
         if (!isMatch) {
-            console.log("❌ Gate 4: Bcrypt Hash Mismatch. DB Hash doesn't match this token.");
-            return { success: false, accessToken: null };
+            // A hash mismatch after a valid JWT signature means a stolen token was used
+            // after rotation. Invalidate the entire session immediately.
+            await prisma.session.delete({ where: { id: currentSession.id } });
+            return FAILURE;
         }
 
-        // 5. Rotation: Generate new tokens using the identifiers
+        // Rotation: issue new refresh token, update hash + expiry in-place
         const { refreshToken, refreshTokenHash } = await generateRefreshTokens(
-            currentSession.user.id, 
+            currentSession.user.id,
             currentSession.id
         );
 
-        // Update the existing session record with the new hash and fresh expiry
-        const newSession = await prisma.session.update({
+        const updatedSession = await prisma.session.update({
             where: { id: currentSession.id },
             data: {
                 refreshTokenHash,
                 expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-            }
+            },
         });
 
         const accessToken = signAccessToken({
             userId: currentSession.user.id,
             role: currentSession.user.role,
-            sessionId: newSession.id
+            sessionId: updatedSession.id,
         });
 
         return { success: true as const, accessToken, refreshToken };
 
     } catch (error) {
-        console.error("Token Refresh Failed:", error);
-        return { success: false as const, accessToken: null };
+        console.error("[refreshSession] Token refresh failed:", error);
+        return FAILURE;
     }
 }

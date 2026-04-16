@@ -9,43 +9,60 @@ export async function middleware(request: NextRequest) {
     const accessToken = request.cookies.get("access_token")?.value;
     const refreshToken = request.cookies.get("refresh_token")?.value;
 
-    const isProtectedRoute = PROTECTED_ROUTES.some((route) => 
-        pathname === route || pathname.startsWith(`${route}/`)
+    const isProtectedRoute = PROTECTED_ROUTES.some(
+        (route) => pathname === route || pathname.startsWith(`${route}/`)
     );
+    const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
 
-    // 1. Redirect to home if accessing protected route without even a refresh token
+    // 1. No refresh token at all — kick unauthenticated users off protected routes
     if (!refreshToken && isProtectedRoute) {
         return NextResponse.redirect(new URL("/", request.url));
     }
 
-    // 2. Prevent logged-in users from hitting Auth pages
-    const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
-    if (refreshToken && isAuthRoute) {
+    // 2. Fully authenticated — block access to auth pages
+    if (accessToken && isAuthRoute) {
         return NextResponse.redirect(new URL("/", request.url));
     }
 
-    // 3. SILENT REFRESH: If we have a refresh token but NO access token, 
-    // we need to call our refresh logic.
+    // 3. Silent refresh: refresh token exists but access token is missing or expired.
+    //    We cannot use Prisma/bcrypt in Edge middleware, so we delegate to an internal
+    //    Node.js API route. On success, we redirect to the same URL — the browser then
+    //    makes a fresh request with the new cookies already in its jar, so getCurrentUser()
+    //    sees them naturally. No request-header mutation required.
     if (!accessToken && refreshToken) {
         try {
-            // We call an internal API route because we can't run Prisma/Bcrypt in Edge Middleware directly
-            const refreshRes = await fetch(`${request.nextUrl.origin}/api/auth/refresh`, {
-                method: "POST",
-                headers: { Cookie: `refresh_token=${refreshToken}` },
-            });
+            const refreshRes = await fetch(
+                `${request.nextUrl.origin}/api/auth/refresh`,
+                {
+                    method: "POST",
+                    headers: { Cookie: `refresh_token=${refreshToken}` },
+                }
+            );
 
             if (refreshRes.ok) {
-                const response = NextResponse.next();
                 const setCookieHeader = refreshRes.headers.get("set-cookie");
-                
-                // If the API returned new cookies, pass them along to the browser
+
                 if (setCookieHeader) {
-                    response.headers.set("set-cookie", setCookieHeader);
+                    // Redirect to the same URL the user was trying to reach.
+                    // The browser re-issues the request, this time carrying the new
+                    // cookies set by the refresh endpoint — clean and correct.
+                    const redirectResponse = NextResponse.redirect(request.url);
+                    redirectResponse.headers.set("set-cookie", setCookieHeader);
+                    return redirectResponse;
                 }
-                return response;
             }
+
+            // Refresh failed — if this is a protected route, send them home.
+            if (isProtectedRoute) {
+                return NextResponse.redirect(new URL("/", request.url));
+            }
+
         } catch (error) {
-            console.error("Middleware Refresh Error:", error);
+            console.error("[Middleware] Token refresh request failed:", error);
+
+            if (isProtectedRoute) {
+                return NextResponse.redirect(new URL("/", request.url));
+            }
         }
     }
 

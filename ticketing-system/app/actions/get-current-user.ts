@@ -16,21 +16,17 @@ export async function getCurrentUser() {
             return { success: false, user: null };
         }
 
-        // 1. Verify Access Token
         let decoded: { userId: string; sessionId: string };
         try {
             decoded = jwt.verify(token, JWT_SECRET) as { userId: string; sessionId: string };
-        } catch (err: any) {
-            // If the token is invalid or expired at this stage, the middleware failed 
-            // to catch it. We return null to stay safe.
+        } catch {
             return { success: false, user: null };
         }
 
-        // 2. Fetch User & Validate Session
         return await fetchUserAndSession(decoded.userId, decoded.sessionId);
 
     } catch (error) {
-        console.error("Auth Check Error:", error);
+        console.error("[getCurrentUser] Auth check failed:", error);
         return { success: false, user: null };
     }
 }
@@ -44,20 +40,17 @@ async function fetchUserAndSession(userId: string, sessionId: string) {
             email: true,
             role: true,
             status: true,
-            tokens: true, 
             sessions: {
                 where: { id: sessionId, expiresAt: { gt: new Date() } },
-                select: { id: true }
-            }
-        }
+                select: { id: true },
+            },
+        },
     });
 
-    // Check if user exists, is active, and the session is still valid in the DB
     if (!user || user.status !== "ACTIVE" || user.sessions.length === 0) {
         return { success: false, user: null };
     }
 
-    // Clean up the response
     const { sessions, ...userData } = user;
     return { success: true, user: userData };
 }
