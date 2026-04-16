@@ -29,7 +29,8 @@ export async function registerUser(formData: FormData) {
         if (existingUser && existingUser.emailVerified) {
             return {
                 success: false,
-                message: "An account with this email already exists and is verified."
+                message: "An account with this email already exists.",
+                errors: { email: ["Email already in use"] }
             }
         }
 
@@ -49,8 +50,6 @@ export async function registerUser(formData: FormData) {
                     }
                 });
             } else {
-                // If they exist but aren't verified, update their password (optional)
-                // and name in case they changed them on the second attempt
                 await tx.user.update({
                     where: { email },
                     data: { name, password: hashPassword }
@@ -61,13 +60,13 @@ export async function registerUser(formData: FormData) {
             const otpResponse = await generateAndSaveOTP(email, tx);
             
             if (!otpResponse.success || !otpResponse.otp) {
-                throw new Error("OTP_GENERATION_FAILED");
+                throw new Error("(OTP) - Registeration failed due to technical error. Please try again.");
             }
 
             const emailResult = await sendVerificationEmail(email, otpResponse.otp);
 
             if (!emailResult.success) {
-                throw new Error("EMAIL_SENDING_FAILED"); 
+                throw new Error("(Email) - Registeration failed due to technical error. Please try again."); 
             }
 
             await setVerificationCookie(email);
@@ -75,8 +74,6 @@ export async function registerUser(formData: FormData) {
 
         return { 
             success: true, 
-            message: "Verification email sent!",
-            email // Return email for redirect logic
         };
 
     } catch (error: any) {

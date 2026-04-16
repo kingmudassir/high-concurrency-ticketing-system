@@ -29,8 +29,6 @@ export default function NavbarLogin({ user }: NavbarLoginProps) {
 
     const handleLogout = async () => {
         await logoutUser();
-        router.push('/');
-        router.refresh(); // Forces the layout to re-run getCurrentUser
     };
 
     return (
@@ -50,10 +48,7 @@ export default function NavbarLogin({ user }: NavbarLoginProps) {
 
                     {/* Navigation Links (Desktop) */}
                     <div className="hidden md:flex items-center space-x-8">
-                        <div className="flex items-center bg-gray-100 px-3 py-1 rounded-full border border-gray-200">
-                            <span className="text-xs font-bold text-gray-500 mr-2 uppercase">Tokens:</span>
-                            <span className="text-sm font-black text-blue-600">{user.tokens}</span>
-                        </div>
+
                         <Link href="/events" className="text-sm font-semibold text-gray-600 hover:text-blue-600 transition-colors">
                             Browse Events
                         </Link>

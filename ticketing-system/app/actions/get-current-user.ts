@@ -3,48 +3,30 @@
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { prisma } from "@/lib/prisma";
-import { refreshSession } from "./refresh-session";
-import { setAuthCookies } from "@/lib/cookies/auth-cookies";
 
 const ACCESS_TOKEN_COOKIE = "access_token";
-const REFRESH_TOKEN_COOKIE = "refresh_token";
 const JWT_SECRET = process.env.JWT_SECRET!;
 
 export async function getCurrentUser() {
     try {
         const cookieStore = await cookies();
-        let token = cookieStore.get(ACCESS_TOKEN_COOKIE)?.value;
-        const refreshToken = cookieStore.get(REFRESH_TOKEN_COOKIE)?.value;
+        const token = cookieStore.get(ACCESS_TOKEN_COOKIE)?.value;
 
-        // 1. No access token but refresh token exists — silent refresh
-        if (!token && refreshToken) {
-            const refresh = await refreshSession();
-            if (refresh.success && refresh.accessToken) {
-                // getCurrent user IS a server action, so it CAN write cookies
-                await setAuthCookies(refresh.accessToken, refresh.refreshToken!);
-                token = refresh.accessToken;
-            }
-        }
-
-        if (!token) return { success: false, user: null };
-
-        // 2. Verify access token
-        let decoded: { userId: string; sessionId: string };
-        try {
-            decoded = jwt.verify(token, JWT_SECRET) as { userId: string; sessionId: string };
-        } catch (err) {
-            // 3. Token expired — one refresh attempt
-            if (refreshToken) {
-                const refresh = await refreshSession();
-                if (refresh.success && refresh.accessToken) {
-                    await setAuthCookies(refresh.accessToken, refresh.refreshToken!);
-                    const newDecoded = jwt.verify(refresh.accessToken, JWT_SECRET) as { userId: string; sessionId: string };
-                    return await fetchUserAndSession(newDecoded.userId, newDecoded.sessionId);
-                }
-            }
+        if (!token) {
             return { success: false, user: null };
         }
 
+        // 1. Verify Access Token
+        let decoded: { userId: string; sessionId: string };
+        try {
+            decoded = jwt.verify(token, JWT_SECRET) as { userId: string; sessionId: string };
+        } catch (err: any) {
+            // If the token is invalid or expired at this stage, the middleware failed 
+            // to catch it. We return null to stay safe.
+            return { success: false, user: null };
+        }
+
+        // 2. Fetch User & Validate Session
         return await fetchUserAndSession(decoded.userId, decoded.sessionId);
 
     } catch (error) {
@@ -61,19 +43,21 @@ async function fetchUserAndSession(userId: string, sessionId: string) {
             name: true,
             email: true,
             role: true,
-            tokens: true,
             status: true,
+            tokens: true, 
             sessions: {
-                where: { id: sessionId },
+                where: { id: sessionId, expiresAt: { gt: new Date() } },
                 select: { id: true }
             }
         }
     });
 
-    if (!user || user.sessions.length === 0 || user.status !== "ACTIVE") {
+    // Check if user exists, is active, and the session is still valid in the DB
+    if (!user || user.status !== "ACTIVE" || user.sessions.length === 0) {
         return { success: false, user: null };
     }
 
+    // Clean up the response
     const { sessions, ...userData } = user;
     return { success: true, user: userData };
 }

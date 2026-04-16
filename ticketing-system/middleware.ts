@@ -1,45 +1,57 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import * as jose from 'jose'; // Use 'jose' for middleware, 'jsonwebtoken' is too heavy for the Edge
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET!);
+const PROTECTED_ROUTES = ["/dashboard", "/my-tickets", "/settings", "/profile"];
+const AUTH_ROUTES = ["/login", "/register", "/otp"];
 
 export async function middleware(request: NextRequest) {
-    const accessToken = request.cookies.get('access_token')?.value;
-    const refreshToken = request.cookies.get('refresh_token')?.value;
+    const { pathname } = request.nextUrl;
+    const accessToken = request.cookies.get("access_token")?.value;
+    const refreshToken = request.cookies.get("refresh_token")?.value;
 
-    // 1. Define paths that need protection
-    const isDashboardPage = request.nextUrl.pathname.startsWith('/dashboard');
-    const isSettingsPage = request.nextUrl.pathname.startsWith('/settings');
-    const isLoginPage = request.nextUrl.pathname.startsWith('/login');
+    const isProtectedRoute = PROTECTED_ROUTES.some((route) => 
+        pathname === route || pathname.startsWith(`${route}/`)
+    );
 
-    // 2. LOGIC: If user is on a protected page without an access token
-    if ((isDashboardPage || isSettingsPage) && !accessToken) {
-        // If they have a refresh token, let them proceed to the page 
-        // and let the Server Action handle the refresh (to avoid complex middleware logic)
-        if (refreshToken) {
-            return NextResponse.next();
-        }
-        
-        // No tokens at all? Send them to login
-        return NextResponse.redirect(new URL('/login', request.url));
+    // 1. Redirect to home if accessing protected route without even a refresh token
+    if (!refreshToken && isProtectedRoute) {
+        return NextResponse.redirect(new URL("/", request.url));
     }
 
-    // 3. LOGIC: If user is logged in, don't let them go to the Login page
-    if (isLoginPage && accessToken) {
-        return NextResponse.redirect(new URL('/dashboard', request.url));
+    // 2. Prevent logged-in users from hitting Auth pages
+    const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
+    if (refreshToken && isAuthRoute) {
+        return NextResponse.redirect(new URL("/", request.url));
+    }
+
+    // 3. SILENT REFRESH: If we have a refresh token but NO access token, 
+    // we need to call our refresh logic.
+    if (!accessToken && refreshToken) {
+        try {
+            // We call an internal API route because we can't run Prisma/Bcrypt in Edge Middleware directly
+            const refreshRes = await fetch(`${request.nextUrl.origin}/api/auth/refresh`, {
+                method: "POST",
+                headers: { Cookie: `refresh_token=${refreshToken}` },
+            });
+
+            if (refreshRes.ok) {
+                const response = NextResponse.next();
+                const setCookieHeader = refreshRes.headers.get("set-cookie");
+                
+                // If the API returned new cookies, pass them along to the browser
+                if (setCookieHeader) {
+                    response.headers.set("set-cookie", setCookieHeader);
+                }
+                return response;
+            }
+        } catch (error) {
+            console.error("Middleware Refresh Error:", error);
+        }
     }
 
     return NextResponse.next();
 }
 
-// 4. CONFIG: Only run middleware on specific paths
-// middleware.ts
 export const config = {
-    matcher: [
-        '/dashboard/:path*', 
-        '/settings/:path*', 
-        '/login',
-        '/' // Keep root if needed
-    ],
+    matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };

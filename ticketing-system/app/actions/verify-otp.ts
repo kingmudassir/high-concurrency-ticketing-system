@@ -21,7 +21,7 @@ export async function verifyOTP(userEnteredOtp: string) {
             return { success: false, message: "Session expired. Please register again." };
         }
 
-        // 1. Decode Email from Verification Cookie
+        // 1. Decode Email
         let email: string;
         try {
             const decoded = jwt.verify(token, SECRET) as { email: string };
@@ -33,17 +33,10 @@ export async function verifyOTP(userEnteredOtp: string) {
         // 2. Fetch User
         const user = await prisma.user.findUnique({
             where: { email },
-            select: {
-                id: true,
-                otp: true,
-                otpExpiresAt: true,
-                role: true,
-            }
+            select: { id: true, otp: true, otpExpiresAt: true, role: true }
         });
 
-        if (!user) {
-            return { success: false, message: "User account not found." };
-        }
+        if (!user) return { success: false, message: "User account not found." };
 
         // 3. Validation
         if (!user.otp || user.otp !== userEnteredOtp) {
@@ -51,10 +44,10 @@ export async function verifyOTP(userEnteredOtp: string) {
         }
 
         if (user.otpExpiresAt && new Date() > user.otpExpiresAt) {
-            return { success: false, message: "This code has expired. Please request a new one." };
+            return { success: false, message: "This code has expired." };
         }
 
-        // 4. ATOMIC TRANSACTION: Verify User + Session Creation
+        // 4. ATOMIC TRANSACTION
         const { finalAccessToken, refreshToken } = await prisma.$transaction(async (tx) => {
             // A. Mark User as Verified
             await tx.user.update({
@@ -67,19 +60,27 @@ export async function verifyOTP(userEnteredOtp: string) {
                 }
             });
 
-            // B. Generate Refresh Token and Hash
-            const { refreshToken, refreshTokenHash } = await generateRefreshTokens();
-
-            // C. Create Session in DB to get the REAL ID
+            // B. Create an empty session first to get the ID
+            // We use a temporary string for the hash because we need the session.id 
+            // to generate the actual Refresh Token JWT.
             const session = await tx.session.create({
                 data: {
                     userId: user.id,
-                    refreshTokenHash,
-                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 Days
+                    refreshTokenHash: "TEMP_HASH", 
+                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
                 }
             });
 
-            // D. Sign the final Access Token with the session ID
+            // C. Now we have the session.id, generate the REAL tokens
+            const { refreshToken, refreshTokenHash } = await generateRefreshTokens(user.id, session.id);
+
+            // D. Update the session with the real hash
+            await tx.session.update({
+                where: { id: session.id },
+                data: { refreshTokenHash }
+            });
+
+            // E. Sign the final Access Token
             const finalAccessToken = signAccessToken({
                 userId: user.id,
                 role: user.role,
@@ -89,11 +90,9 @@ export async function verifyOTP(userEnteredOtp: string) {
             return { finalAccessToken, refreshToken };
         });
 
-        // 5. Set Auth Cookies using updated utility
+        // 5. Finalize
         await setAuthCookies(finalAccessToken, refreshToken);
-
-        // 6. Cleanup Verification Cookie
-        cookieStore.delete(VERIFY_COOKIE);
+        (await cookies()).delete(VERIFY_COOKIE);
 
         return { 
             success: true, 
@@ -101,7 +100,7 @@ export async function verifyOTP(userEnteredOtp: string) {
         };
 
     } catch (error) {
-        console.error("Verification/Login Error:", error);
-        return { success: false, message: "A server error occurred during verification." };
+        console.error("Verification Error:", error);
+        return { success: false, message: "A server error occurred." };
     }
 }

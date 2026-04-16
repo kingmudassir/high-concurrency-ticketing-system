@@ -1,8 +1,8 @@
 // app/(landing)/layout.tsx
 import { getCurrentUser } from "../actions/get-current-user";
 import Footer from "../Global-Components/Footer";
-import Navbar from "./_components/Navbar";
-import NavbarLogin from "./_components/NavbarLogin"; // Assuming this exists
+import Navbar from "../Global-Components/Navbar";
+import NavbarLogin from "../Global-Components/NavbarLogin"; // Assuming this exists
 
 export default async function LandingLayout({ children }: { children: React.ReactNode }) {
     // 1. Fetch user directly on the server

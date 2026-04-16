@@ -4,11 +4,11 @@ import { useState } from "react";
 import OTPHeader from "./Otpheader";
 import OTPInputs from "./Otpinputs";
 import OTPActions from "./Otpactions";
-import { useVerifyOTP } from "@/app/hooks/use-verify-otp";
+import { useVerifyOTP } from "@/app/hooks/otp-hooks/use-verify-otp";
 
 export default function OTPPage() {
     const [otp, setOtp] = useState<string[]>(new Array(6).fill(""));
-    const { mutate, isPending, error, isError, reset } = useVerifyOTP();
+    const { mutate, isPending, error, isError, data } = useVerifyOTP();
 
     const isComplete = otp.every((d) => d !== "");
 
@@ -37,9 +37,9 @@ export default function OTPPage() {
                 disabled={isPending}
                 />
 
-                {isError && (
-                    <p className="text-red-500 text-sm text-center mt-4 font-medium animate-in fade-in slide-in-from-top-1">
-                        {error.message}
+                {data && !data.success && (
+                    <p className="text-red-500 text-sm text-center mt-4 font-medium animate-in fade-in slide-in-from-top-1 pb-5">
+                        {data.message}
                     </p>
                 )}
 

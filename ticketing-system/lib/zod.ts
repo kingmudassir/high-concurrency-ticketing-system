@@ -35,3 +35,15 @@ export const RegisterSchema = z.object({
     message: "Passwords do not match",
     path: ["confirmPassword"], // This tells Zod to attach the error to the confirmPassword field
 });
+
+export const LoginSchema = z.object({
+    email: z
+        .string()
+        .trim()
+        .email("Please enter a valid email address")
+        .toLowerCase(),
+
+    password: z
+        .string()
+        .min(1, "Password is required"), // Don't enforce complexity here, just presence
+});

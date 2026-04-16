@@ -2,7 +2,7 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation"
-import { registerUser } from "../actions/register";
+import { registerUser } from "../../actions/registeration-page/register";
 
 export function useRegisterMutation() {
     const router = useRouter()
@@ -15,7 +15,7 @@ export function useRegisterMutation() {
 
         onSuccess: (result) => {
             if (result.success) {
-                router.push("/otp?message=Check your email for the OTP code!")
+                router.push("/otp")
             }
         }
     })
