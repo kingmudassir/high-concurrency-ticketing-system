@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap");
 @import "tailwindcss";
 
 @theme {
@@ -26,4 +27,183 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+}
+
+/* ─── Design Tokens ─── */
+:root {
+  --cream: #f5f0e8;
+  --ink: #1a1614;
+  --amber: #d4860a;
+  --amber-light: #f0a830;
+  --muted: #8c8480;
+}
+
+/* ─── Base ─── */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--cream);
+    color: var(--ink);
+    font-family: "DM Sans", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Color utilities */
+  .bg-cream {
+    background-color: var(--cream);
+  }
+  .text-cream {
+    color: var(--cream);
+  }
+  .text-ink {
+    color: var(--ink);
+  }
+  .bg-ink {
+    background-color: var(--ink);
+  }
+  .border-ink {
+    border-color: var(--ink);
+  }
+}
+
+/* ─── Typography ─── */
+@layer components {
+  .display-heading {
+    font-family: "Playfair Display", Georgia, serif;
+    font-size: clamp(3.5rem, 8vw, 7rem);
+    font-weight: 900;
+    line-height: 0.92;
+    letter-spacing: -0.02em;
+  }
+
+  .section-heading {
+    font-family: "Playfair Display", Georgia, serif;
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+
+  .text-outline {
+    -webkit-text-stroke: 2px var(--ink);
+    color: transparent;
+  }
+
+  /* ─── Buttons ─── */
+  .btn-primary {
+    background-color: var(--ink);
+    color: var(--cream);
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 0.75rem 1.75rem;
+    border-radius: 9999px;
+    border: 1.5px solid var(--ink);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    letter-spacing: -0.01em;
+  }
+
+  .btn-primary:hover {
+    background-color: transparent;
+    color: var(--ink);
+  }
+
+  .btn-ghost {
+    background-color: transparent;
+    color: var(--ink);
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.75rem 1.75rem;
+    border-radius: 9999px;
+    border: 1.5px solid rgba(26, 22, 20, 0.18);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-ghost:hover {
+    border-color: rgba(26, 22, 20, 0.4);
+  }
+
+  /* ─── Stat cards ─── */
+  .stat-card {
+    flex: 1;
+    min-width: 120px;
+    padding: 1.25rem 1.5rem;
+    background: rgba(26, 22, 20, 0.03);
+    border: 1px solid rgba(26, 22, 20, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .stat-card:first-child {
+    border-radius: 1rem 0 0 1rem;
+  }
+
+  .stat-card:last-child {
+    border-radius: 0 1rem 1rem 0;
+  }
+
+  .stat-number {
+    font-family: "DM Mono", monospace;
+    font-size: 1.5rem;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 0.7rem;
+    color: rgba(26, 22, 20, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-family: "DM Mono", monospace;
+  }
+
+  /* ─── Hero grid background ─── */
+  .hero-grid {
+    background-image:
+      linear-gradient(rgba(26, 22, 20, 1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(26, 22, 20, 1) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+}
+
+/* ─── Animations ─── */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ticker {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.ticker-track {
+  animation: ticker 28s linear infinite;
+  width: max-content;
+}
+
+/* ─── Noise texture ─── */
+.noise-bg {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
 }
