@@ -8,7 +8,7 @@ datasource db {
 
 model User {
   id       String @id @default(cuid())
-  name     String
+  username String
   email    String @unique
   password String
   tokens   Int    @default(0) // Internal currency for TicketRush

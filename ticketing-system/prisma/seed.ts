@@ -1,5 +1,5 @@
 // prisma/seed.ts
-import { prisma } from "../lib/prisma";
+import { prisma } from "../lib/db/prisma";
 
 async function main() {
   // 1. Clean out existing data

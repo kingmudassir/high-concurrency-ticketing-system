@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import Providers from "./globalcomponents/Providers";
 
 export const metadata: Metadata = {
     title: "FluxTicket — High-Traffic Event Ticketing",
@@ -14,7 +15,11 @@ export default function RootLayout({
     }) {
     return (
         <html lang="en">
-        <body>{children}</body>
+        <body>
+            <Providers>
+                    {children}
+            </Providers>
+        </body>
         </html>
     );
 }
