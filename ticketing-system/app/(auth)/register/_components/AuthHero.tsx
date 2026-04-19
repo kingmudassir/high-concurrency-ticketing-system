@@ -6,7 +6,7 @@ export function AuthHero() {
         <div className="flex items-center gap-4 mb-8">
             <div className="w-10 h-px bg-emerald-600" />
             <span className="text-[10px] font-mono font-bold tracking-[0.4em] uppercase text-zinc-400">
-            Identity_Protocol
+            Identity Protocol
             </span>
         </div>
         

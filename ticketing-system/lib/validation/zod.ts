@@ -40,11 +40,11 @@ export const RegisterSchema = z.object({
 });
 
 export const LoginSchema = z.object({
-    // Identifier allows user to use either their username or email to log in
-    identifier: z
+    email: z
         .string()
         .trim()
-        .min(1, "Enter your email or username")
+        .min(1, "Email is required") 
+        .email("Please enter a valid email address")
         .toLowerCase(),
 
     password: z

@@ -1,12 +1,11 @@
 "use server";
 
 import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
 import { getPrisma } from "@/lib/db/prisma";
 import { generateRefreshTokens, setAuthCookies, signAccessToken } from "@/lib/cookies/auth-cookies";
+import { getPendingEmail } from "./get-pending-email";
 
 const VERIFY_COOKIE = "pending_verification";
-const SECRET = process.env.JWT_SECRET!;
 
 export async function verifyOTP(userEnteredOtp: string) {
     try {
@@ -19,13 +18,10 @@ export async function verifyOTP(userEnteredOtp: string) {
             return { success: false, message: "Session expired. Please register again." };
         }
 
-        // 1. Decode Email
-        let email: string;
-        try {
-            const decoded = jwt.verify(token, SECRET) as { email: string };
-            email = decoded.email;
-        } catch (err) {
-            return { success: false, message: "Invalid or expired session." };
+        const email = await getPendingEmail();
+
+        if (!email) {
+            return { success: false, message: "Session expired or invalid. Please register again." };
         }
 
         // 2. Fetch User

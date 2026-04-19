@@ -1,5 +1,5 @@
 import Footer from "./components/Footer";
-import RushNavbar from "./components/Navbar";
+import RushNavbar from "../globalcomponents/Navbar/Navbar";
 
 export default function LandingLayout({
     children,

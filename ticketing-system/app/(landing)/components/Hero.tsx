@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Play, Activity } from "lucide-react";
+import { AuthButton } from "@/app/globalcomponents/AuthButton";
 
 export default function Hero() {
     const [count, setCount] = useState(0);
@@ -41,12 +42,12 @@ export default function Hero() {
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
                 </span>
                 <span className="text-zinc-400 font-mono text-[9px] sm:text-[10px] font-bold tracking-[0.3em] sm:tracking-[0.4em] uppercase whitespace-nowrap">
-                Production_Ready
+                Production Ready
                 </span>
             </div>
             <div className="h-px w-8 sm:w-12 bg-zinc-200" />
             <span className="text-zinc-400 font-mono text-[9px] sm:text-[10px] font-bold tracking-[0.3em] sm:tracking-[0.4em] uppercase">
-                v1.0.4_Stable
+                v1.0.4 Stable
             </span>
             </div>
 
@@ -69,10 +70,11 @@ export default function Hero() {
                 </p>
                 
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 sm:gap-8 mt-10">
-                <button className="w-full sm:w-auto bg-zinc-950 text-white px-10 py-5 font-bold text-xs uppercase tracking-[0.2em] hover:bg-emerald-600 transition-all flex items-center justify-center gap-4 rounded-sm">
-                    Get Started
-                    <ArrowRight className="w-4 h-4" />
-                </button>
+
+                <AuthButton 
+                showIcon={true}
+                className="w-full sm:w-auto bg-zinc-950 text-white px-10 py-5 font-bold text-xs uppercase tracking-[0.2em] hover:bg-emerald-600 transition-all flex items-center justify-center gap-4 rounded-sm"
+                />
                 
                 <button className="group flex items-center gap-3 text-zinc-400 hover:text-zinc-950 transition-colors font-bold text-xs uppercase tracking-[0.2em]">
                     <div className="w-10 h-10 border border-zinc-200 flex items-center justify-center group-hover:border-zinc-950 transition-colors">

@@ -1,78 +1,89 @@
 "use client";
-import { useState, useMemo } from 'react';
-import { UserPlus, ArrowRight, User, Mail, Lock, CheckCircle2 } from 'lucide-react';
+
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { User, Mail, Lock, CheckCircle2 } from 'lucide-react';
 import { InputField } from './InputField';
 import Link from 'next/link';
 import { RegisterSchema } from '@/lib/validation/zod';
-import { useRegisterMutation } from '@/app/hooks/register/register';
+import { useRegisterMutation } from '@/app/hooks/register/useRegister';
+import { z } from "zod";
+
+type RegisterValues = z.infer<typeof RegisterSchema>;
 
 export function RegisterForm() {
     const { mutate, isPending } = useRegisterMutation();
-    const [errors, setErrors] = useState<Record<string, string>>({});
-    const [formData, setFormData] = useState({
-        username: '',
-        email: '',
-        password: '',
-        confirmPassword: ''
+    
+    const { 
+        register, 
+        handleSubmit, 
+        setError, 
+        watch,        
+        clearErrors, 
+        formState: { errors } 
+    } = useForm<RegisterValues>({
+        resolver: zodResolver(RegisterSchema),
+        // Validate when user leaves the field for the first time
+        mode: "onBlur",
+        // CRITICAL: Stop the library from auto-showing errors while typing
+        reValidateMode: "onBlur", 
+        defaultValues: {
+            username: '',
+            email: '',
+            password: '',
+            confirmPassword: ''
+        }
     });
 
-    const strength = useMemo(() => ({
-        length: formData.password.length >= 8,
-        special: /[!@#$%^&*(),.?":{}|<>]/.test(formData.password),
-        number: /[0-9]/.test(formData.password),
-        match: formData.password === formData.confirmPassword && formData.confirmPassword !== ''
-    }), [formData.password, formData.confirmPassword]);
+    const password = watch("password", "");
+    const confirmPassword = watch("confirmPassword", "");
 
-    const clearError = (field: keyof typeof formData) => {
-        if (errors[field]) {
-            setErrors((prev) => {
-                const newErrors = { ...prev };
-                delete newErrors[field];
-                return newErrors;
-            });
-        }
+    const strength = {
+        length: password.length >= 8,
+        special: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+        number: /[0-9]/.test(password),
+        match: password === confirmPassword && confirmPassword !== ''
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrors({});
-
-    const result = RegisterSchema.safeParse(formData);
-
-    if (!result.success) {
-        const formattedErrors: Record<string, string> = {};
-        result.error.issues.forEach((issue) => {
-            formattedErrors[issue.path[0] as string] = issue.message;
+    const onSubmit = (data: RegisterValues) => {
+        const submitData = new FormData();
+        Object.entries(data).forEach(([key, val]) => {
+            submitData.append(key, val);
         });
-        setErrors(formattedErrors);
-        return;
-    }
 
-    // Prepare FormData for the Server Action
-    const submitData = new FormData();
-    Object.entries(formData).forEach(([key, value]) => {
-        submitData.append(key, value);
-    });
-
-    mutate(submitData, {
-        onSuccess: (data) => {
-            if (!data.success) {
-                // Handle Server-side validation or logic errors (e.g., Email in use)
-                if (data.errors) {
-                    // Flatten server errors back into our local error state
-                    const serverErrors: Record<string, string> = {};
-                    Object.entries(data.errors).forEach(([key, messages]) => {
-                        serverErrors[key] = Array.isArray(messages) ? messages[0] : messages;
-                    });
-                    setErrors(serverErrors);
-                } else if (data.message) {
-                    // If no specific field error, set a general error (optional)
-                    alert(data.message);
+        mutate(submitData, {
+            onSuccess: (res) => {
+                if (!res.success) {
+                    if (res.errors) {
+                        // existing field error handling
+                        Object.entries(res.errors).forEach(([key, messages]) => {
+                            setError(key as keyof RegisterValues, { 
+                                type: "server",
+                                message: Array.isArray(messages) ? messages[0] : messages 
+                            });
+                        });
+                    } else if (res.message) {
+                        // NEW: handle the general message from registerUser catch block
+                        setError("email", {   // or use "root" if you prefer
+                            type: "server",
+                            message: res.message 
+                        });
+                    }
                 }
+            },
+            // ADD THIS BLOCK:
+            onError: (error) => {
+                // This runs if the server crashes (500 error)
+                console.error("Mutation failed:", error);
+                
+                // You can manually set a general error on a field 
+                // or a global toast to let the user know the system failed.
+                setError("email", { 
+                    type: "server", 
+                    message: "A critical system error occurred. Please try again." 
+                });
             }
-            // If data.success is true, the hook handles the redirect to "/"
-        }
-    });
+        });
     };
 
     return (
@@ -88,30 +99,39 @@ export function RegisterForm() {
                 </div>
             </div>
 
-            <form className="space-y-5" onSubmit={handleSubmit}>
+            {/* Global Error Message */}
+            {errors.root?.serverError && (
+                <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    <p className="text-[11px] font-bold text-red-700 uppercase tracking-wider">
+                        {errors.root.serverError.message}
+                    </p>
+                </div>
+            )}
+
+            <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
                 <InputField 
                     label="Username" 
                     icon={User} 
                     type="text" 
                     placeholder="e.g. KingMoody" 
                     disabled={isPending}
-                    error={errors.username}
-                    onChange={(e) => {
-                        setFormData({ ...formData, username: e.target.value });
-                        clearError('username');
-                    }}
+                    error={errors.username?.message}
+                    {...register("username", {
+                        onChange: () => clearErrors("username") 
+                    })}
                 />
+                
                 <InputField 
                     label="Email Address" 
                     icon={Mail} 
                     type="email" 
                     placeholder="name@company.com" 
                     disabled={isPending}
-                    error={errors.email}
-                    onChange={(e) => {
-                        setFormData({ ...formData, email: e.target.value });
-                        clearError('email');
-                    }}
+                    error={errors.email?.message}
+                    {...register("email", {
+                        onChange: () => clearErrors("email")
+                    })}
                 />
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -121,11 +141,10 @@ export function RegisterForm() {
                         type="password" 
                         placeholder="••••••••" 
                         disabled={isPending}
-                        error={errors.password}
-                        onChange={(e) => {
-                            setFormData({ ...formData, password: e.target.value });
-                            clearError('password');
-                        }}
+                        error={errors.password?.message}
+                        {...register("password", {
+                            onChange: () => clearErrors("password")
+                        })}
                     />
                     <InputField 
                         label="Confirm" 
@@ -133,11 +152,10 @@ export function RegisterForm() {
                         type="password" 
                         placeholder="••••••••" 
                         disabled={isPending}
-                        error={errors.confirmPassword}
-                        onChange={(e) => {
-                            setFormData({ ...formData, confirmPassword: e.target.value });
-                            clearError('confirmPassword');
-                        }}
+                        error={errors.confirmPassword?.message}
+                        {...register("confirmPassword", {
+                            onChange: () => clearErrors("confirmPassword")
+                        })}
                     />
                 </div>
 
@@ -148,19 +166,14 @@ export function RegisterForm() {
                     <StrengthCheck label="Passwords Match" active={strength.match} />
                 </div>
 
+                {/* Terms and Button logic remains same */}
                 <div className="flex items-start gap-3 pt-2">
-                    <input
-                        type="checkbox"
-                        id="terms"
-                        className=" w-4 h-4 shrink-0 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-emerald-500"
-                    />
-                    <label
-                        htmlFor="terms"
-                        className="text-[11px] text-zinc-500 leading-normal cursor-pointer select-none"
-                    >
+                    <input type="checkbox" id="terms" required className="w-4 h-4 shrink-0 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-emerald-500" />
+                    <label htmlFor="terms" className="text-[11px] text-zinc-500 leading-normal cursor-pointer select-none">
                         I acknowledge the <span className="text-zinc-950 font-bold underline underline-offset-2">Service Protocol</span> and data encryption policies.
                     </label>
                 </div>
+
                 <button 
                     type="submit"
                     disabled={isPending}
@@ -168,18 +181,7 @@ export function RegisterForm() {
                         isPending ? 'opacity-70 cursor-not-allowed' : 'hover:bg-zinc-900'
                     }`}
                 >
-                    {isPending ? (
-                        <span className="flex items-center gap-2">
-                            <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            Processing...
-                        </span>
-                    ) : (
-                        <>
-                            <UserPlus className="w-4 h-4 text-emerald-500" />
-                            Create an account
-                            <ArrowRight className="w-4 h-4" />
-                        </>
-                    )}
+                    {isPending ? "Processing..." : "Create an account"}
                 </button>
             </form>
 

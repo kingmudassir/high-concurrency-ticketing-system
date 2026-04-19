@@ -38,11 +38,6 @@ export default function OTPPage() {
         fetchEmail();
     }, []);
 
-    /**
-     * EFFECT: Success Message Auto-Dismiss
-     * Monitors 'status'. If it's a success, show the message then hide after 3s.
-     * Errors stay visible until the user interacts.
-     */
     useEffect(() => {
         if (status.message) {
             setShowResendStatus(true);
@@ -51,7 +46,7 @@ export default function OTPPage() {
             if (status.success) {
                 const timer = setTimeout(() => {
                     setShowResendStatus(false);
-                }, 3000);
+                }, 5000);
                 return () => clearTimeout(timer);
             }
         }
@@ -96,18 +91,6 @@ export default function OTPPage() {
 
                 <OTPHeader />
 
-                <div className="mt-4 flex justify-center">
-                    {!email ? (
-                        <div className="animate-pulse text-[10px] font-mono text-zinc-400 uppercase">
-                            Initialising_Auth_Node...
-                        </div>
-                    ) : (
-                        <div className="text-[10px] font-mono text-zinc-500 bg-zinc-50 px-2 py-1 border border-zinc-100 uppercase">
-                            Target: <span className="text-zinc-950 font-bold">{email}</span>
-                        </div>
-                    )}
-                </div>
-
                 <div className="py-6">
                     <OTPInputs 
                         otp={otp} 
@@ -124,7 +107,7 @@ export default function OTPPage() {
                             : "bg-rose-50 border-rose-100 text-rose-600"
                     }`}>
                         <p className="text-[11px] font-mono font-bold uppercase tracking-tight">
-                            {status.success ? "SYSTEM_SYNC: " : "RESEND_ERROR: "}
+                            {status.success ? "SUCCESS: " : "RESEND ERROR: "}
                             {status.message}
                         </p>
                     </div>
@@ -135,7 +118,7 @@ export default function OTPPage() {
                     <div className="flex items-center gap-3 bg-rose-50 border border-rose-100 p-4 mb-8 animate-in fade-in zoom-in-95 duration-200">
                         <AlertTriangle className="text-rose-600 shrink-0" size={16} />
                         <p className="text-rose-600 text-[11px] font-mono font-bold uppercase tracking-tight">
-                            Critical_Failure: {data.message || "Invalid_Verification_Code"}
+                            {data.message || "Invalid Verification Code"}
                         </p>
                     </div>
                 )}
@@ -147,22 +130,7 @@ export default function OTPPage() {
                     isLoading={isPending || isResending}
                     cooldown={cooldown}
                 />
-
-                <div className="mt-12 pt-8 border-t border-zinc-100 flex justify-between items-center opacity-50">
-                    <div className="flex flex-col gap-1">
-                        <span className="text-[8px] font-mono text-zinc-400 uppercase tracking-widest leading-none">Access_Point</span>
-                        <span className="text-[10px] font-mono text-zinc-900 font-bold uppercase">Auth_Node_V1</span>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                        <span className="text-[8px] font-mono text-zinc-400 uppercase tracking-widest leading-none">Security_Hash</span>
-                        <span className="text-[10px] font-mono text-zinc-900 font-bold uppercase">0x7F4A...B2C</span>
-                    </div>
-                </div>
             </div>
-
-            <p className="mt-8 text-[10px] font-mono text-zinc-400 uppercase tracking-[0.3em]">
-                System_Integrity_Verified_2026
-            </p>
         </div>
     );
 }

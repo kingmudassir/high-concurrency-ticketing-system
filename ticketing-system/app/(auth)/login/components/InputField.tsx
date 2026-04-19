@@ -1,14 +1,15 @@
 "use client";
 import { LucideIcon, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useState, forwardRef } from 'react';
+import Link from 'next/link';
 
 interface InputFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
     label: string;
     icon: LucideIcon;
     error?: string;
+    forgotPasswordLink?: boolean;
 }
 
-// Wrap with forwardRef to allow react-hook-form to access the input
 export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(({ 
     label, 
     icon: Icon, 
@@ -16,7 +17,8 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(({
     error, 
     disabled, 
     className,
-    ...props // This captures register's onChange, onBlur, name, and ref
+    forgotPasswordLink,
+    ...props 
 }, ref) => {
     const [showPassword, setShowPassword] = useState(false);
     const isPasswordField = type === 'password';
@@ -24,10 +26,17 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(({
 
     return (
         <div className={`space-y-2 w-full transition-opacity ${disabled ? 'opacity-60' : 'opacity-100'}`}>
-            <div className="flex justify-between items-center px-1">
+            <div className="flex justify-between items-end px-1">
                 <label className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-[0.2em]">
                     {label}
                 </label>
+                
+                {forgotPasswordLink && !error && (
+                    <Link href="#" className="text-[9px] font-mono text-zinc-400 hover:text-zinc-950 transition-colors uppercase">
+                        Forgot Password?
+                    </Link>
+                )}
+
                 {error && (
                     <span className="text-[9px] font-bold text-red-500 uppercase tracking-wider flex items-center gap-1">
                         <AlertCircle className="w-3 h-3" />
@@ -37,9 +46,10 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(({
             </div>
 
             <div className="relative group">
+                {/* Icon Prefix */}
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <Icon className={`h-4 w-4 transition-colors ${
-                        error ? 'text-red-400' : 'text-zinc-300 group-focus-within:text-emerald-600'
+                        error ? 'text-red-400' : 'text-zinc-300 group-focus-within:text-zinc-950'
                     }`} />
                 </div>
                 
@@ -54,9 +64,10 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(({
                         error 
                         ? 'border-red-500 focus:border-red-600 focus:bg-red-50/10' 
                         : 'border-zinc-200 focus:border-zinc-950 focus:bg-white'
-                    }`}
+                    } ${className}`}
                 />
 
+                {/* Password Toggle */}
                 {isPasswordField && (
                     <button
                         type="button"

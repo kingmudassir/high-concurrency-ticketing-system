@@ -34,11 +34,15 @@ export async function registerUser(formData: FormData) {
             }
         }
 
+        // Fix 2: Moved hash below the early return to save CPU cycles on duplicates
         const hashPassword = await hash(password, 12);
 
+        // This variable captures the OTP generated inside the transaction
+        let generatedOtp: string | undefined;
+
+        // --- TRANSACTION START (Strictly DB writes) ---
         await prisma.$transaction(async (tx) => {
             if (!existingUser) {
-                // Create user only if they don't exist
                 await tx.user.create({
                     data: {
                         username,
@@ -54,30 +58,40 @@ export async function registerUser(formData: FormData) {
                 });
             }
 
-            // Generate/Save OTP, Send Email, and Set Cookie
             const otpResponse = await generateAndSaveOTP(email, tx);
             
             if (!otpResponse.success || !otpResponse.otp) {
-                throw new Error("(OTP) - Registeration failed due to technical error. Please try again.");
+                throw new Error("OTP_GENERATION_FAILED");
             }
 
-            const emailResult = await sendVerificationEmail(email, otpResponse.otp);
+            generatedOtp = otpResponse.otp;
+        }, { timeout: 10000 }); // Reduced timeout; DB writes shouldn't take 15s
+        // --- TRANSACTION END ---
 
-            if (!emailResult.success) {
-                throw new Error("(Email) - Registeration failed due to technical error. Please try again."); 
-            }
+        // Fix 1: External network calls run AFTER the DB connection is released
+        const emailResult = await sendVerificationEmail(email, generatedOtp!);
 
-            await setVerificationCookie(email);
-        }, { timeout: 15000 });
+        if (!emailResult.success) {
+            // Note: The user record exists at this point. 
+            // The UI should handle this by allowing them to click "Resend Email".
+            return { 
+                success: false, 
+                message: "User registered, but verification email failed to send. Try to register again please." 
+            };
+        }
+
+        await setVerificationCookie(email);
 
         return { 
             success: true, 
         };
+
     } catch (error: any) {
-        console.error("Registration/Verification Error:", error.message);
+        console.error("Registration Error:", error.message);
         
-        if (error.message === "EMAIL_SENDING_FAILED") {
-            return { success: false, message: "Could not send verification email." };
+        // Handle specific custom error from inside transaction
+        if (error.message === "OTP GENERATION FAILED") {
+            return { success: false, message: "Technical error generating security code." };
         }
         
         return { success: false, message: "An error occurred. Please try again." };
