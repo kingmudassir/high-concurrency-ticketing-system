@@ -16,13 +16,10 @@ export function useLoginMutation() {
 
         onSuccess: (result) => {
             if (result.success) {
-                // 1. Extract the 'returnTo' parameter from the current URL
                 const returnTo = searchParams.get("returnTo");
+                
+                const destination = result.redirectTo || (returnTo?.startsWith("/") ? returnTo : "/");
 
-                // 2. Validate the path to prevent open-redirect vulnerabilities
-                const destination = returnTo?.startsWith("/") ? returnTo : "/";
-
-                // 3. Send the user back and refresh server components
                 router.push(destination);
                 router.refresh(); 
             }

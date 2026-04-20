@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { hash } from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { NextResponse } from "next/server"; // Import this
 
 const ACCESS_TOKEN_COOKIE = "access_token";
 const REFRESH_TOKEN_COOKIE = "refresh_token";
@@ -39,24 +40,42 @@ export function signAccessToken(payload: { userId: string; role: string; session
  * 3. Sets the cookies in the browser response headers.
  * Added 'secure' flag based on environment.
  */
-export async function setAuthCookies(accessToken: string, refreshToken: string) {
-    const cookieStore = await cookies();
+export async function setAuthCookies(
+    accessToken: string, 
+    refreshToken: string, 
+    res?: NextResponse // Optional response object
+) {
     const isProduction = process.env.NODE_ENV === "production";
-
-    cookieStore.set(ACCESS_TOKEN_COOKIE, accessToken, {
+    
+    const options = {
         httpOnly: true,
-        sameSite: "strict",
-        secure: isProduction, // Only sent over HTTPS in production
-        maxAge: ACCESS_TOKEN_MAX_AGE,
-        path: "/",
-    });
-
-    cookieStore.set(REFRESH_TOKEN_COOKIE, refreshToken, {
-        httpOnly: true,
-        sameSite: "strict",
+        sameSite: "strict" as const,
         secure: isProduction,
-        maxAge: REFRESH_TOKEN_MAX_AGE,
         path: "/",
+    };
+
+    // IF we have a response object (API Route / Middleware context)
+    if (res) {
+        res.cookies.set(ACCESS_TOKEN_COOKIE, accessToken, {
+            ...options,
+            maxAge: ACCESS_TOKEN_MAX_AGE,
+        });
+        res.cookies.set(REFRESH_TOKEN_COOKIE, refreshToken, {
+            ...options,
+            maxAge: REFRESH_TOKEN_MAX_AGE,
+        });
+        return;
+    }
+
+    // FALLBACK: Standard Server Action context
+    const cookieStore = await cookies();
+    cookieStore.set(ACCESS_TOKEN_COOKIE, accessToken, {
+        ...options,
+        maxAge: ACCESS_TOKEN_MAX_AGE,
+    });
+    cookieStore.set(REFRESH_TOKEN_COOKIE, refreshToken, {
+        ...options,
+        maxAge: REFRESH_TOKEN_MAX_AGE,
     });
 }
 

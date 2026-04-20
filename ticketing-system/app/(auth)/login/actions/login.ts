@@ -15,19 +15,17 @@ export async function login(formData: FormData) {
     try {
         const prisma = getPrisma();
 
-        // 1. Fetch User - Mapping to 'password' field from your register logic
         const user = await prisma.user.findUnique({
             where: { email },
             select: {
                 id: true,
-                password: true, // Matches 'password' in register.ts and schema.prisma
+                password: true,
                 role: true,
                 emailVerified: true,
                 status: true,
             },
         });
 
-        // 2. Initial validation
         if (!user || !user.password) {
             return { success: false, message: "Invalid email or password." };
         }
@@ -36,24 +34,20 @@ export async function login(formData: FormData) {
             return { success: false, message: "This account is currently restricted." };
         }
 
-        // 3. Compare the entered password with the hash stored in 'password'
         const isPasswordValid = await compare(password, user.password);
         if (!isPasswordValid) {
             return { success: false, message: "Invalid email or password." };
         }
 
-        // 4. Verification Check
         if (!user.emailVerified) {
             return { 
                 success: false, 
                 message: "Please verify your email before logging in.",
-                unverified: true // Helpful hint for UI to redirect to OTP if needed
+                unverified: true 
             };
         }
 
-        // 5. ATOMIC SESSION CREATION
         const { accessToken, refreshToken } = await prisma.$transaction(async (tx) => {
-            // A. Create Session entry
             const session = await tx.session.create({
                 data: {
                     userId: user.id,
@@ -62,16 +56,13 @@ export async function login(formData: FormData) {
                 },
             });
 
-            // B. Generate tokens
             const { refreshToken, refreshTokenHash } = await generateRefreshTokens(user.id, session.id);
 
-            // C. Update Session with hashed refresh token
             await tx.session.update({
                 where: { id: session.id },
                 data: { refreshTokenHash },
             });
 
-            // D. Generate Access Token
             const accessToken = signAccessToken({
                 userId: user.id,
                 role: user.role,
@@ -81,16 +72,22 @@ export async function login(formData: FormData) {
             return { accessToken, refreshToken };
         });
 
-        // 6. Set Browser Cookies
         await setAuthCookies(accessToken, refreshToken);
 
-        // 7. Update Metadata (Non-blocking)
+        // Non-blocking update
         prisma.user.update({
             where: { id: user.id },
             data: { lastLogin: new Date() }
         }).catch(err => console.error("Last login update failed:", err));
 
-        return { success: true, message: "Login successful!" };
+        // ROLE-BASED REDIRECT LOGIC
+        const redirectTo = user.role === "ADMIN" ? "/admin" : "/";
+
+        return { 
+            success: true, 
+            message: "Login successful!",
+            redirectTo // Pass the route back to the client
+        };
 
     } catch (error) {
         console.error("Login Error:", error);

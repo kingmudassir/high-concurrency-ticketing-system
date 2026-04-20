@@ -6,8 +6,11 @@ export async function POST() {
     const result = await refreshSession();
 
     if (result.success && result.accessToken && result.refreshToken) {
-        await setAuthCookies(result.accessToken, result.refreshToken);
-        return NextResponse.json({ success: true }, { status: 200 });
+        const response = NextResponse.json({ success: true });
+        
+        await setAuthCookies(result.accessToken, result.refreshToken, response);
+        
+        return response;
     }
 
     return NextResponse.json({ success: false }, { status: 401 });

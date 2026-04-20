@@ -63,8 +63,7 @@ enum UserStatus {
 
 enum Role {
   USER
-  MODERATOR
-  SUPERADMIN
+  ADMIN
 }
 
 model AuthAuditLog {
