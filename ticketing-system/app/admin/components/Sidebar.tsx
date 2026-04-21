@@ -200,7 +200,7 @@ export default function Sidebar({ user }: SidebarProps) {
             {/* Collapse Toggle */}
             <button
                 onClick={() => setCollapsed(!collapsed)}
-                className="absolute -right-3 top-18 w-6 h-6 bg-zinc-800 border border-zinc-700 flex items-center justify-center hover:bg-zinc-700 transition-colors z-10"
+                className="absolute -right-3 top-18 w-6 h-6 bg-zinc-800 border border-zinc-700 flex items-center justify-center hover:bg-zinc-700 transition-colors z-40"
             >
                 <ChevronRight
                     className={`w-3 h-3 text-zinc-400 transition-transform duration-300 ${
