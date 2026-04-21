@@ -6,40 +6,36 @@ datasource db {
   provider = "postgresql"
 }
 
+// ─── USER ─────────────────────────────────────────────────────────────────────
+
 model User {
   id       String @id @default(cuid())
   username String
   email    String @unique
   password String
-  tokens   Int    @default(0) // Internal currency for TicketRush
+  tokens   Int    @default(0)
 
-  // Account Status & Soft Delete
   status        UserStatus @default(ACTIVE)
   deletedAt     DateTime?
   reactivatedAt DateTime?
 
-  // Security & Lifecycle
   emailVerified DateTime?
   role          Role      @default(USER)
   lastLogin     DateTime?
   loginAttempts Int       @default(0)
   lockoutUntil  DateTime?
 
-  // Audit Trail
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
   tickets       Ticket[]
   authAuditLogs AuthAuditLog[]
   sessions      Session[]
 
-  //Verification
-  otp          String? // Store the hashed or plain 6-digit code
-  otpExpiresAt DateTime? // Crucial for security
+  otp          String?
+  otpExpiresAt DateTime?
 }
 
-// New: The Session Table for Refresh Token Rotation
 model Session {
   id               String @id @default(cuid())
   refreshTokenHash String @unique
@@ -51,6 +47,16 @@ model Session {
   ipAddress String?
 
   expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model AuthAuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String
+  ipAddress String?
+  userAgent String?
   createdAt DateTime @default(now())
 }
 
@@ -66,29 +72,100 @@ enum Role {
   ADMIN
 }
 
-model AuthAuditLog {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  action    String
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime @default(now())
-}
+// ─── EVENT ────────────────────────────────────────────────────────────────────
 
 model Event {
-  id           String   @id @default(cuid())
-  title        String
-  description  String?
-  location     String
-  price        Int
-  totalTickets Int
-  ticketsSold  Int      @default(0)
-  startDate    DateTime
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  tickets      Ticket[]
+  id          String  @id @default(cuid())
+  title       String
+  subtitle    String? // optional sub-heading shown below title
+  description String?
+  imageUrl    String? // banner / poster image URL
+
+  // Categorisation
+  category String // primary: "concert" | "festival" | "sports" | etc.
+  tags     String[] // sub-tags: ["rock", "indie", "live-band"]
+
+  // Location & Venue
+  location   String // short display name, e.g. "Madison Square Garden"
+  address    String? // full street address
+  city       String?
+  transport  String? // public transport directions
+  parking    String? // parking info
+  venueNotes String? // any extra venue detail
+
+  // Timing
+  startDate DateTime
+  endDate   DateTime? // multi-day events; null = single day
+  doorsOpen DateTime? // doors-open time
+
+  // Fees (stored as integer percentage, e.g. 17 = 17%)
+  gstPercent        Int @default(0)
+  serviceFeePercent Int @default(0)
+
+  // Entry instructions (each element = one bullet)
+  instructions String[]
+
+  // Denormalised aggregates for fast reads
+  totalTickets Int @default(0) // sum of all tier capacities
+  ticketsSold  Int @default(0)
+
+  status    EventStatus @default(DRAFT)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  tickets     Ticket[]
+  ticketTiers TicketTier[]
+  lineupActs  LineupAct[]
 }
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  ENDED
+}
+
+// ─── TICKET TIER ──────────────────────────────────────────────────────────────
+
+model TicketTier {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  name        String // "General Admission" | "VIP" | "Premium" | custom
+  description String? // perks description
+  price       Int // base price in PKR
+  capacity    Int // max tickets for this tier
+  sold        Int     @default(0)
+  sortOrder   Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tickets Ticket[]
+}
+
+// ─── LINEUP ACT ───────────────────────────────────────────────────────────────
+
+model LineupAct {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  name      String // artist / act name
+  role      LineupRole
+  startTime String? // display string: "10:00 PM"
+  sortOrder Int        @default(0)
+}
+
+enum LineupRole {
+  HEADLINER
+  SUPPORT
+  OPENER
+  SPECIAL_GUEST
+}
+
+// ─── TICKET ───────────────────────────────────────────────────────────────────
 
 model Ticket {
   id     String @id @default(cuid())
@@ -97,8 +174,16 @@ model Ticket {
   eventId String
   event   Event  @relation(fields: [eventId], references: [id])
 
+  tierId String
+  tier   TicketTier @relation(fields: [tierId], references: [id])
+
   userId String
   user   User   @relation(fields: [userId], references: [id])
+
+  // Snapshot prices at purchase time (tier price may change after)
+  pricePaid      Int
+  gstPaid        Int @default(0)
+  serviceFeePaid Int @default(0)
 
   expiresAt DateTime
   createdAt DateTime @default(now())

@@ -7,9 +7,6 @@ export default function LandingPage() {
     return (
         <>
         <Hero />
-        <HowItWorks />
-        <LoadTestResults />
-        <TechStack />
         </>
     );
 }

@@ -1,15 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { 
-  Menu, 
-  X, 
-  Layers, 
-  Activity, 
-  FileText, 
-  ArrowRight,
-  LogOut
-} from 'lucide-react';
+import { Menu, X, Layers, Activity, FileText, ArrowRight, LogOut, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { AuthButton } from '@/app/globalcomponents/AuthButton';
@@ -17,41 +9,38 @@ import { getCurrentUser } from '@/app/actions/getuser/getUser';
 import { useLogout } from '@/app/hooks/logout/use-logout';
 
 const GitHubIcon = () => (
-  <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 fill-current">
-    <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+  <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 fill-current">
+    <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
   </svg>
 );
 
-const RushNavbar = () => {
+export default function RushNavbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const [user, setUser] = useState<any>(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const userMenuRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const { logout, isLoggingOut } = useLogout();
 
-  // 1. Fetch User on Mount
   useEffect(() => {
     const fetchUser = async () => {
       try {
         const response = await getCurrentUser();
-        if (response.success) {
-          setUser(response.user);
-        }
-      } catch (error) {
-        console.error("Auth check failed", error);
+        if (response.success) setUser(response.user);
+      } catch (e) {
+        console.error("Auth check failed", e);
       } finally {
-        setIsLoading(false); // Authentication check is complete
+        setIsLoading(false);
       }
     };
     fetchUser();
   }, []);
 
-  // 2. Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setIsUserMenuOpen(false);
       }
     };
@@ -59,150 +48,150 @@ const RushNavbar = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // 1. Initialize the hook at the top of your component
-  const { logout, isLoggingOut } = useLogout();
-
-  // 2. Update the handler function
-  // Inside RushNavbar.tsx
-  const handleLogout = async () => {
-    // Instant UI feedback:
-    setIsUserMenuOpen(false); 
-    setIsOpen(false); // Close mobile menu if open
-    
-    await logout();
-  };
-
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
+    const handleScroll = () => setScrolled(window.scrollY > 24);
     window.addEventListener('scroll', handleScroll);
-    document.body.style.overflow = isOpen ? 'hidden' : 'unset';
+    document.body.style.overflow = isOpen ? 'hidden' : '';
     return () => window.removeEventListener('scroll', handleScroll);
   }, [isOpen]);
 
-  const navLinks = [
-    { name: 'Architecture', icon: <Layers />, href: "#stack" },
-    { name: 'Load Reports', icon: <Activity />, href: "#test" },
-    { name: 'Documentation', icon: <FileText />, href: "#docs" },
-  ];
-
-  const userMenuLinks = [
-    { name: 'Dashboard', href: '/dashboard', icon: <Layers className="w-4 h-4" /> },
-    { name: 'My Tickets', href: '/tickets', icon: <Activity className="w-4 h-4" /> },
-    { name: 'Settings', href: '/settings', icon: <FileText className="w-4 h-4" /> },
-  ];
+  const handleLogout = async () => {
+    setIsUserMenuOpen(false);
+    setIsOpen(false);
+    await logout();
+  };
 
   const userInitial = user
     ? (user.username ? user.username[0].toUpperCase() : user.email[0].toUpperCase())
     : null;
 
-  return (
-    <nav className={`fixed top-0 w-full z-100 transition-all duration-300 ${
-        scrolled 
-          ? 'bg-zinc-50/90 backdrop-blur-md border-b border-zinc-200 py-4 shadow-sm' 
-          : 'bg-transparent py-8'
-    }`}>
+  const navLinks = [
+    { name: 'Browse Events', href: '/events' },
+    { name: 'My Tickets', href: '/tickets' },
+  ];
 
-      
-      <div className="max-w-425 mx-auto px-6 sm:px-10 flex items-center justify-between relative">
-        
-        {/* LEFT: BRANDING */}
-        <Link 
-          href={'/'}
-          className="flex items-center gap-4 z-10 group cursor-pointer"
-        >
-          <div className="w-9 h-9 bg-zinc-950 flex items-center justify-center transition-transform group-hover:scale-105">
-            <div className="w-2.5 h-2.5 bg-emerald-500" />
+  const userMenuLinks = [
+    { name: 'Dashboard', href: '/dashboard', icon: <Layers className="w-3.5 h-3.5" /> },
+    { name: 'My Tickets', href: '/tickets', icon: <Activity className="w-3.5 h-3.5" /> },
+    { name: 'Settings', href: '/settings', icon: <FileText className="w-3.5 h-3.5" /> },
+  ];
+
+  return (
+    <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${
+      scrolled
+        ? 'bg-white/95 backdrop-blur-xl border-b border-zinc-100 shadow-sm shadow-zinc-100'
+        : 'bg-transparent'
+    }`}>
+      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+
+        {/* LEFT: Logo */}
+        <Link href="/" className="flex items-center gap-2.5 group">
+          <div className="relative w-8 h-8 bg-zinc-950 flex items-center justify-center overflow-hidden">
+            <div className="w-2 h-2 bg-emerald-400 group-hover:scale-[4] transition-transform duration-500 ease-in-out rounded-full" />
           </div>
-          <div className="flex flex-col">
-            <h1 className="text-xl font-bold tracking-tighter leading-none text-zinc-950">
-              RUSH<span className="text-emerald-600">TICKET</span>
-            </h1>
-            <p className="font-mono text-[9px] text-zinc-400 tracking-[0.3em] uppercase mt-1">
-              CONCURRENCY V1.0
+          <div>
+            <span className="text-[15px] font-black tracking-[-0.04em] text-zinc-950 uppercase">
+              Rush<span className="text-emerald-500">Ticket</span>
+            </span>
+            <p className="text-[7px] font-mono text-zinc-400 tracking-[0.25em] uppercase leading-none mt-0.5">
+              v1.0 — live
             </p>
           </div>
         </Link>
 
-        {/* MIDDLE: LINKS (Desktop) */}
-        <div className="hidden min-[1250px]:flex items-center gap-12 absolute left-1/2 -translate-x-1/2">
+        {/* MIDDLE: Nav Links */}
+        <div className="hidden lg:flex items-center gap-8">
           {navLinks.map((link) => (
-            <a 
-              key={link.name} 
+            <Link
+              key={link.name}
               href={link.href}
-              className="text-[10px] font-bold text-zinc-400 hover:text-emerald-600 transition-colors uppercase tracking-[0.4em] font-mono"
+              className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-500 hover:text-zinc-950 transition-colors relative group"
             >
               {link.name}
-            </a>
+              <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-emerald-500 group-hover:w-full transition-all duration-200" />
+            </Link>
           ))}
         </div>
 
-        {/* RIGHT: ACTIONS (Desktop) */}
-        <div className="hidden min-[1250px]:flex items-center gap-6 z-10">
-          <a href="#" className="flex items-center gap-2 text-zinc-500 hover:text-zinc-950 transition-colors">
+        {/* RIGHT: GitHub + Auth */}
+        <div className="hidden lg:flex items-center gap-3">
+          {/* GitHub Star — always visible */}
+          <a
+            href="https://github.com"
+            target="_blank"
+            rel="noreferrer"
+            className={`flex items-center gap-2 px-3.5 py-2 border text-[11px] font-bold uppercase tracking-widest transition-all group ${
+              scrolled
+                ? 'border-zinc-200 text-zinc-500 hover:border-zinc-950 hover:text-zinc-950 bg-white'
+                : 'border-white/20 text-white/70 hover:border-white hover:text-white bg-white/5'
+            }`}
+          >
             <GitHubIcon />
-            <span className="text-xs font-medium">Star on GitHub</span>
+            <Star className="w-3 h-3 fill-current opacity-60 group-hover:opacity-100 transition-opacity" />
+            <span>Star</span>
           </a>
 
-          {/* 1. Check if we are still fetching auth status. 
-            Showing a subtle pulse prevents the "Logged Out" button from flashing.
-          */}
+          {/* Auth Section */}
           {isLoading ? (
-            <div className="h-10 w-28 bg-zinc-100 animate-pulse rounded-full border border-zinc-200" />
+            <div className="w-28 h-9 bg-zinc-100 animate-pulse rounded" />
           ) : !user ? (
-            /* 2. Show only when we are CERTAIN there is no user */
-            <AuthButton 
+            <AuthButton
               showIcon={false}
-              className="bg-zinc-950 text-white px-6 py-2.5 rounded-full text-sm font-semibold transition-all hover:bg-zinc-800 active:scale-[0.98]" 
+              className={`px-5 py-2 text-[11px] font-bold uppercase tracking-widest transition-all ${
+                scrolled
+                  ? 'bg-zinc-950 text-white hover:bg-emerald-600'
+                  : 'bg-white text-zinc-950 hover:bg-emerald-400'
+              }`}
             />
           ) : (
-            /* 3. Show when user is authenticated */
             <div className="relative" ref={userMenuRef}>
-              <button 
+              <button
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="flex items-center gap-3 p-1 pr-3 rounded-full border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 transition-all bg-white"
+                className={`flex items-center gap-2.5 px-3 py-1.5 border transition-all ${
+                  scrolled
+                    ? 'border-zinc-200 bg-white hover:border-zinc-400'
+                    : 'border-white/20 bg-white/10 hover:bg-white/20'
+                }`}
               >
-                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-sm">
+                <div className="w-6 h-6 bg-emerald-500 flex items-center justify-center text-white font-bold text-[10px]">
                   {userInitial}
                 </div>
-                <span className="text-sm font-semibold text-zinc-700">
-                  {user.username || "Account"}
+                <span className={`text-[11px] font-bold tracking-wide ${scrolled ? 'text-zinc-700' : 'text-white'}`}>
+                  {user.username || 'Account'}
                 </span>
               </button>
 
               <AnimatePresence>
                 {isUserMenuOpen && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    transition={{ duration: 0.15, ease: "easeOut" }}
-                    className="absolute right-0 mt-3 w-64 bg-white border border-zinc-100 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.08)] z-50 overflow-hidden"
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 6 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-full mt-2 w-52 bg-white border border-zinc-200 shadow-xl shadow-zinc-200/50 z-50"
                   >
-                    <div className="px-5 py-4 bg-zinc-50/50 border-b border-zinc-100">
-                      <p className="text-xs font-medium text-zinc-500">Signed in as</p>
+                    <div className="p-3 border-b border-zinc-100">
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Signed in as</p>
                       <p className="text-sm font-bold text-zinc-900 truncate mt-0.5">{user.email}</p>
                     </div>
-                    <div className="p-2">
-                      {userMenuLinks.map((item) => (
-                        <Link 
-                          key={item.name}
-                          href={item.href}
-                          onClick={() => setIsUserMenuOpen(false)}
-                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950 transition-all"
-                        >
-                          <span className="text-zinc-400">{item.icon}</span>
-                          {item.name}
-                        </Link>
-                      ))}
-                    </div>
-                    <div className="p-2 border-t border-zinc-100">
-                      <button 
-                        onClick={handleLogout}
-                        disabled={isLoggingOut}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 transition-colors"
+                    {userMenuLinks.map((item) => (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        onClick={() => setIsUserMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 text-[12px] font-semibold text-zinc-600 hover:bg-zinc-50 hover:text-zinc-950 transition-colors"
                       >
-                        <LogOut className={`w-4 h-4 ${isLoggingOut ? 'animate-spin' : ''}`} />
-                        {isLoggingOut ? "Signing out..." : "Logout"}
+                        <span className="text-zinc-400">{item.icon}</span>
+                        {item.name}
+                      </Link>
+                    ))}
+                    <div className="p-2 border-t border-zinc-100">
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-[12px] font-semibold text-red-500 hover:bg-red-50 transition-colors"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        Sign out
                       </button>
                     </div>
                   </motion.div>
@@ -212,19 +201,21 @@ const RushNavbar = () => {
           )}
         </div>
 
-        {/* MOBILE TOGGLE */}
-        <div className="min-[1250px]:hidden z-10">
-          <button 
-            onClick={() => setIsOpen(true)}
-            className={`flex items-center gap-3 border px-4 py-2 transition-colors ${scrolled ? 'border-zinc-200 bg-white hover:bg-zinc-50' : 'border-zinc-200 bg-white/50 hover:bg-white'}`}
-          >
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">Menu</span>
-            <Menu className="text-zinc-950 w-5 h-5" />
-          </button>
-        </div>
+        {/* MOBILE: Hamburger */}
+        <button
+          onClick={() => setIsOpen(true)}
+          className={`lg:hidden flex items-center gap-2 px-4 py-2 border text-[10px] font-bold uppercase tracking-widest transition-all ${
+            scrolled
+              ? 'border-zinc-200 text-zinc-600 bg-white'
+              : 'border-white/30 text-white bg-white/10'
+          }`}
+        >
+          Menu
+          <Menu className="w-4 h-4" />
+        </button>
       </div>
 
-      {/* MOBILE FULL SCREEN PANEL */}
+      {/* MOBILE SLIDE PANEL */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -232,104 +223,73 @@ const RushNavbar = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={(e) => e.target === e.currentTarget && setIsOpen(false)}
-            className="fixed inset-0 z-[200] bg-zinc-950/20 backdrop-blur-sm flex justify-end"
+            className="fixed inset-0 z-200 bg-zinc-950/40 backdrop-blur-sm"
           >
             <motion.div
               ref={menuRef}
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 250 }}
-              className="w-full sm:w-[450px] bg-zinc-50 h-screen shadow-[-40px_0_80px_rgba(0,0,0,0.1)] border-l border-zinc-200 flex flex-col"
+              transition={{ type: 'spring', damping: 28, stiffness: 220 }}
+              className="absolute right-0 top-0 h-full w-full sm:w-105 bg-white flex flex-col"
             >
-              {/* Panel Header */}
-              <div className="p-6 flex justify-between items-center border-b border-zinc-200 bg-white shrink-0">
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-mono text-emerald-600 font-bold tracking-[0.2em] uppercase">
-                    System Menu
-                  </span>
-                  <span className="text-xl font-bold text-zinc-950 tracking-tighter">
-                    RUSHTICKET
-                  </span>
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100">
+                <div>
+                  <p className="text-[9px] font-mono text-emerald-500 font-bold tracking-[0.3em] uppercase">System / Nav</p>
+                  <p className="text-xl font-black tracking-[-0.04em] uppercase text-zinc-950">RushTicket</p>
                 </div>
-                <button 
-                  onClick={() => setIsOpen(false)}
-                  className="p-3 border border-zinc-200 text-zinc-400 hover:text-zinc-950 transition-all"
-                >
+                <button onClick={() => setIsOpen(false)} className="p-2 border border-zinc-200 text-zinc-400 hover:text-zinc-950 transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* User Identity Block — only when logged in */}
+              {/* User block */}
               {user && (
-                <div className="px-6 py-5 bg-white border-b border-zinc-100 shrink-0">
-                  <div className="flex items-center gap-4">
-                    <div className="w-11 h-11 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-base shrink-0">
-                      {userInitial}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-zinc-900 truncate">
-                        {user.username || "Account"}
-                      </p>
-                      <p className="text-xs text-zinc-400 truncate">{user.email}</p>
-                    </div>
+                <div className="px-6 py-4 bg-zinc-50 border-b border-zinc-100 flex items-center gap-3">
+                  <div className="w-10 h-10 bg-emerald-500 flex items-center justify-center text-white font-black text-sm">
+                    {userInitial}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-zinc-950">{user.username || 'Account'}</p>
+                    <p className="text-xs text-zinc-400">{user.email}</p>
                   </div>
                 </div>
               )}
 
-              {/* Nav Links */}
-              <div className="flex-1 px-6 py-8 flex flex-col gap-1 overflow-y-auto">
-                {/* Page nav */}
-                <p className="text-[9px] font-mono text-zinc-300 uppercase tracking-[0.2em] font-bold px-2 mb-3">
-                  Navigation
-                </p>
-                {navLinks.map((link, idx) => (
-                  <motion.a
-                    initial={{ x: 20, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    transition={{ delay: 0.05 * idx }}
-                    key={link.name}
-                    href={link.href}
-                    onClick={() => setIsOpen(false)}
-                    className="group flex items-center justify-between p-5 border border-transparent hover:border-zinc-200 hover:bg-white transition-all"
-                  >
-                    <div className="flex items-center gap-5">
-                      <span className="text-[10px] font-mono text-zinc-300 font-bold">0{idx + 1}</span>
-                      <span className="text-xl font-bold text-zinc-400 group-hover:text-zinc-950 transition-colors uppercase tracking-tighter">
+              {/* Links */}
+              <div className="flex-1 px-6 py-6 flex flex-col gap-1 overflow-y-auto">
+                <p className="text-[9px] font-mono text-zinc-300 uppercase tracking-[0.3em] mb-3">Navigation</p>
+                {navLinks.map((link, i) => (
+                  <motion.div key={link.name} initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.04 * i }}>
+                    <Link
+                      href={link.href}
+                      onClick={() => setIsOpen(false)}
+                      className="group flex items-center justify-between py-4 border-b border-zinc-100 hover:border-zinc-300 transition-colors"
+                    >
+                      <span className="text-lg font-black uppercase tracking-tighter text-zinc-400 group-hover:text-zinc-950 transition-colors">
                         {link.name}
                       </span>
-                    </div>
-                    <ArrowRight className="w-4 h-4 text-emerald-500 opacity-0 group-hover:opacity-100 transition-all -translate-x-3 group-hover:translate-x-0" />
-                  </motion.a>
+                      <ArrowRight className="w-4 h-4 text-emerald-500 -translate-x-2 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+                    </Link>
+                  </motion.div>
                 ))}
 
-                {/* Account links — only when logged in */}
                 {user && (
                   <>
-                    <p className="text-[9px] font-mono text-zinc-300 uppercase tracking-[0.2em] font-bold px-2 mt-6 mb-3">
-                      Account
-                    </p>
-                    {userMenuLinks.map((item, idx) => (
-                      <motion.div
-                        key={item.name}
-                        initial={{ x: 20, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        transition={{ delay: 0.05 * (navLinks.length + idx) }}
-                      >
+                    <p className="text-[9px] font-mono text-zinc-300 uppercase tracking-[0.3em] mt-6 mb-3">Account</p>
+                    {userMenuLinks.map((item, i) => (
+                      <motion.div key={item.name} initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.04 * (navLinks.length + i) }}>
                         <Link
                           href={item.href}
                           onClick={() => setIsOpen(false)}
-                          className="group flex items-center justify-between p-5 border border-transparent hover:border-zinc-200 hover:bg-white transition-all"
+                          className="group flex items-center justify-between py-4 border-b border-zinc-100 hover:border-zinc-300 transition-colors"
                         >
-                          <div className="flex items-center gap-5">
-                            <span className="text-zinc-300 group-hover:text-zinc-500 transition-colors">
-                              {item.icon}
-                            </span>
-                            <span className="text-xl font-bold text-zinc-400 group-hover:text-zinc-950 transition-colors uppercase tracking-tighter">
-                              {item.name}
-                            </span>
+                          <div className="flex items-center gap-3 text-zinc-400 group-hover:text-zinc-950 transition-colors">
+                            {item.icon}
+                            <span className="text-lg font-black uppercase tracking-tighter">{item.name}</span>
                           </div>
-                          <ArrowRight className="w-4 h-4 text-emerald-500 opacity-0 group-hover:opacity-100 transition-all -translate-x-3 group-hover:translate-x-0" />
+                          <ArrowRight className="w-4 h-4 text-emerald-500 -translate-x-2 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
                         </Link>
                       </motion.div>
                     ))}
@@ -337,40 +297,39 @@ const RushNavbar = () => {
                 )}
               </div>
 
-              {/* Panel Footer */}
-              <div className="p-6 bg-white border-t border-zinc-200 flex flex-col gap-4 shrink-0">
-                <div className="flex flex-col gap-2">
-                  <span className="text-[9px] font-mono text-zinc-400 uppercase tracking-widest px-1 font-bold">External_Connect</span>
-                  <a 
-                    href="#" 
-                    className="flex items-center justify-center gap-3 border border-zinc-200 text-zinc-600 py-3.5 font-bold text-[10px] tracking-[0.2em] hover:bg-zinc-950 hover:text-white transition-all uppercase"
-                  >
-                    <GitHubIcon />
-                    Star on GitHub
-                  </a>
-                </div>
+              {/* Footer */}
+              <div className="p-6 border-t border-zinc-100 flex flex-col gap-3">
+                <a
+                  href="https://github.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-2.5 py-4 border border-zinc-200 text-zinc-600 text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-zinc-950 hover:text-white hover:border-zinc-950 transition-all"
+                >
+                  <GitHubIcon />
+                  <Star className="w-3 h-3 fill-current" />
+                  Star on GitHub
+                </a>
 
-                {/* Auth CTA: show login button OR logout button */}
                 {!user ? (
-                  <AuthButton 
+                  <AuthButton
                     showIcon={false}
-                    className="text-center w-full py-5 bg-zinc-950 text-white font-bold text-sm uppercase tracking-widest hover:bg-zinc-900 transition-all"
+                    className="w-full py-4 bg-zinc-950 text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-emerald-600 transition-colors text-center"
                   />
                 ) : (
-                  <button 
+                  <button
                     onClick={handleLogout}
-                    className="w-full flex items-center justify-center gap-3 py-5 border border-red-100 bg-red-50 text-red-500 font-bold text-sm uppercase tracking-widest hover:bg-red-100 transition-all"
+                    className="w-full flex items-center justify-center gap-2.5 py-4 border border-red-100 bg-red-50 text-red-500 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-red-100 transition-colors"
                   >
                     <LogOut className="w-4 h-4" />
-                    Logout
+                    Sign out
                   </button>
                 )}
 
-                <div className="flex justify-between items-center pt-2">
-                  <span className="text-[9px] font-mono text-zinc-300 uppercase tracking-[0.2em]">Build_2026.04</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 bg-emerald-500" />
-                    <span className="text-[9px] font-mono text-zinc-300 uppercase tracking-[0.2em]">Status: Online</span>
+                <div className="flex justify-between pt-1">
+                  <span className="text-[8px] font-mono text-zinc-300 uppercase tracking-widest">Build_2026.04</span>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                    <span className="text-[8px] font-mono text-zinc-300 uppercase tracking-widest">Online</span>
                   </div>
                 </div>
               </div>
@@ -380,6 +339,4 @@ const RushNavbar = () => {
       </AnimatePresence>
     </nav>
   );
-};
-
-export default RushNavbar;
+}

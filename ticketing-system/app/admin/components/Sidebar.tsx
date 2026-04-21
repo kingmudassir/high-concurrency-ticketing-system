@@ -14,6 +14,7 @@ import {
     BarChart3,
     ChevronRight,
     Flag,
+    PlusCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { useLogout } from "@/app/hooks/logout/use-logout";
@@ -42,7 +43,8 @@ const navItems = [
         group: "Core",
         items: [
             { label: "Overview", href: "/admin", icon: LayoutDashboard, exact: true },
-            { label: "Events", href: "/admin/events", icon: CalendarDays },
+            { label: "Events", href: "/admin/events", icon: CalendarDays, exact: true },
+            { label: "Create Event", href: "/admin/events/new", icon: PlusCircle },
             { label: "Tickets", href: "/admin/tickets", icon: Ticket },
         ],
     },
