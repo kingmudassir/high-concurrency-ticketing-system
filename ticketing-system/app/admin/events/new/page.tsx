@@ -477,7 +477,7 @@ export default function CreateEventPage() {
                                                     serviceFeePercent={serviceFeePercent}
                                                     onGstChange={setGstPercent}
                                                     onServiceFeeChange={setServiceFeePercent}
-                                                    firstTier={tiers[0]}
+                                                    tiers={tiers}
                                                 />
                                             )}
                                             {section.id === "lineup" && (

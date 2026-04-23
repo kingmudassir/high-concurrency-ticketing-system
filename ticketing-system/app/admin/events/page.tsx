@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Plus, Search, CalendarDays, MapPin, Ticket, MoreHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import CreateEventModal from "./CreateEventModal";
-import { useEvents } from "@/app/hooks/Admin-Hooks/Fetch-Events/useEvents";
+import { useEvents } from "@/app/hooks/events/useEvents";
 
 const statusConfig: Record<string, { label: string; color: string }> = {
     active:   { label: "Active",    color: "text-emerald-600 bg-emerald-50 border-emerald-100" },

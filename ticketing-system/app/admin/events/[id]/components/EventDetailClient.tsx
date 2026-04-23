@@ -28,7 +28,6 @@ import { format } from "date-fns";
 
 import { deleteEventAction } from "../actions/delete-event";
 import { useEvent } from "@/app/hooks/Admin-Hooks/Fetch-Events/useEvent";
-import EditEventModal from "./EditEventModal";
 
 const TICKETS_PER_PAGE = 10;
 
@@ -55,7 +54,6 @@ interface Props {
 
 export default function EventDetailClient({ eventId }: Props) {
     const { data: event, isLoading, isError } = useEvent(eventId);
-    const [isEditOpen, setIsEditOpen] = useState(false);
     const [isDeleteConfirm, setIsDeleteConfirm] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [ticketSearch, setTicketSearch] = useState("");
@@ -159,6 +157,13 @@ export default function EventDetailClient({ eventId }: Props) {
         }
     }
 
+    // ─── Edit Handler ────────────────────────────────────────────────────────────
+    function handleEdit() {
+        if (event) {
+            router.push(`/admin/events/${event.id}/edit`);
+        }
+    }
+
     // ─── Render ──────────────────────────────────────────────────────────────────
     return (
         <>
@@ -190,7 +195,7 @@ export default function EventDetailClient({ eventId }: Props) {
 
                         <div className="flex items-center gap-3">
                             <button
-                                onClick={() => setIsEditOpen(true)}
+                                onClick={handleEdit}
                                 className="flex items-center gap-2 border border-zinc-200 bg-white text-zinc-500 hover:text-zinc-950 hover:border-zinc-950 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest transition-colors"
                             >
                                 <Pencil className="w-3 h-3" />
@@ -513,13 +518,6 @@ export default function EventDetailClient({ eventId }: Props) {
                     </div>
                 </div>
             </div>
-
-            {/* ── Edit Modal ─────────────────────────────────────────────────── */}
-            <EditEventModal
-                isOpen={isEditOpen}
-                onClose={() => setIsEditOpen(false)}
-                event={event}
-            />
 
             {/* ── Delete Confirmation Overlay ───────────────────────────────── */}
             {isDeleteConfirm && (

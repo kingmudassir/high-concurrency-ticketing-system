@@ -1,6 +1,6 @@
 "use client";
 
-import { fetchEventById } from "@/app/admin/events/[id]/actions/fetch-event";
+import { fetchEventById } from "@/app/events/[id]/actions/fetch-event";
 import { useQuery } from "@tanstack/react-query";
 
 export function useEvent(eventId: string) {

@@ -78,6 +78,70 @@ type FetchEventResult =
     | { success: true; data: EventDetail }
     | { success: false; error: string };
 
+// Public version - no auth required
+export async function fetchPublicEventById(eventId: string): Promise<FetchEventResult> {
+    const prisma = getPrisma();
+
+    try {
+        const event = await prisma.event.findUnique({
+            where: { 
+                id: eventId,
+                status: "PUBLISHED" // Only show published events
+            },
+            include: {
+                ticketTiers: {
+                    orderBy: { sortOrder: 'asc' },
+                },
+                lineupActs: {
+                    orderBy: { sortOrder: 'asc' },
+                },
+                // Don't include tickets for public view for security
+            },
+        });
+
+        if (!event) {
+            return { success: false, error: "EVENT_NOT_FOUND" };
+        }
+
+        // Transform to match the EventDetail type (without tickets)
+        const formattedEvent: EventDetail = {
+            id: event.id,
+            title: event.title,
+            subtitle: event.subtitle,
+            description: event.description,
+            imageUrl: event.imageUrl,
+            category: event.category,
+            tags: event.tags,
+            location: event.location,
+            address: event.address,
+            city: event.city,
+            transport: event.transport,
+            parking: event.parking,
+            venueNotes: event.venueNotes,
+            startDate: event.startDate,
+            endDate: event.endDate,
+            doorsOpen: event.doorsOpen,
+            gstPercent: event.gstPercent,
+            serviceFeePercent: event.serviceFeePercent,
+            instructions: event.instructions,
+            totalTickets: event.totalTickets,
+            ticketsSold: event.ticketsSold,
+            status: event.status,
+            createdAt: event.createdAt,
+            updatedAt: event.updatedAt,
+            ticketTiers: event.ticketTiers,
+            lineupActs: event.lineupActs,
+            tickets: [], // Public view doesn't get ticket details
+        };
+
+        return { success: true, data: formattedEvent };
+    } catch (error) {
+        console.error("[fetchPublicEventById] Error:", error);
+        return { success: false, error: "INTERNAL_SERVER_ERROR" };
+    }
+}
+
+// Admin version - requires auth
 export async function fetchEventById(eventId: string): Promise<FetchEventResult> {
     const prisma = getPrisma();
     const cookieStore = await cookies();

@@ -6,7 +6,7 @@ import EventsSearchBar from './Eventssearchbar';
 import EventsFilters from './Eventsfilters';
 import EventsGrid from './Eventsgrid';
 import EventsHeader from './Eventsheader';
-import { useEvents } from '@/app/hooks/Admin-Hooks/Fetch-Events/useEvents';
+import { useEvents } from '@/app/hooks/events/useEvents';
 
 interface Props {
   initialQuery: string;

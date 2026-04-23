@@ -1,23 +1,34 @@
 "use server";
 
 import { getPrisma } from "@/lib/db/prisma";
-import { cookies } from "next/headers";
-import { decodeJwt } from "jose";
 
 export async function fetchAllEventsWithTickets() {
     const prisma = getPrisma();
-    const cookieStore = await cookies();
-    const accessToken = cookieStore.get("access_token")?.value;
-
-    // 1. Optional: Security Check
-    // If only admins should see the full ticket breakdown, keep this.
-    if (!accessToken) {
-        return { success: false, error: "UNAUTHORIZED" };
-    }
 
     try {
-        // 2. Database Query with Include - Now includes ticketTiers
+        const now = new Date();
+
+        // Database Query with Include - Only fetch non-expired events
         const events = await prisma.event.findMany({
+            where: {
+                status: "PUBLISHED",
+                OR: [
+                    // Events that haven't started yet
+                    { startDate: { gt: now } },
+                    // Events that are currently ongoing (have endDate in the future)
+                    { 
+                        AND: [
+                            { startDate: { lte: now } },
+                            { endDate: { gt: now } }
+                        ]
+                    },
+                    // Events with no endDate that haven't passed (single day events not yet started)
+                    {
+                        endDate: null,
+                        startDate: { gt: now }
+                    }
+                ]
+            },
             include: {
                 tickets: {
                     select: {
@@ -30,7 +41,7 @@ export async function fetchAllEventsWithTickets() {
                     }
                 },
                 ticketTiers: {
-                    orderBy: { price: 'asc' }, // Sort by price ascending
+                    orderBy: { price: 'asc' },
                     select: {
                         id: true,
                         name: true,
@@ -43,14 +54,15 @@ export async function fetchAllEventsWithTickets() {
                 }
             },
             orderBy: {
-                startDate: 'asc' // Sort by upcoming events
+                startDate: 'asc'
             }
         });
 
-        // 3. Data Transformation - Updated for new schema
+        // Data Transformation
         const formattedEvents = events.map(event => ({
             id: event.id,
             name: event.title,
+            title: event.title, // Add title for consistency
             subtitle: event.subtitle,
             description: event.description,
             imageUrl: event.imageUrl,
@@ -73,13 +85,11 @@ export async function fetchAllEventsWithTickets() {
             status: event.status,
             createdAt: event.createdAt,
             updatedAt: event.updatedAt,
-            // NEW: Include ticket tiers instead of single price
             ticketTiers: event.ticketTiers,
-            // For backward compatibility - calculate min price from tiers
             price: event.ticketTiers.length > 0 
                 ? Math.min(...event.ticketTiers.map(t => t.price))
                 : 0,
-            tickets: event.tickets, // All individual ticket details
+            tickets: event.tickets,
         }));
 
         return { success: true, data: formattedEvents };
