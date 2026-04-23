@@ -6,7 +6,7 @@ import EventsSearchBar from './Eventssearchbar';
 import EventsFilters from './Eventsfilters';
 import EventsGrid from './Eventsgrid';
 import EventsHeader from './Eventsheader';
-import { useEvents } from '@/app/hooks/events/useEvents';
+import { usePublicEvents } from '@/app/hooks/events/usePublicEvents';
 
 interface Props {
   initialQuery: string;
@@ -35,13 +35,14 @@ export interface RealEvent {
     capacity: number;
     sold: number;
   }>;
-  status: string;
+  // Remove this line - status doesn't exist in public events
+  // status: string;
 }
 
 export default function EventsClient({ initialQuery, initialLocation, initialCategory, initialSort }: Props) {
   const router = useRouter();
   const pathname = usePathname();
-  const { data: rawEvents = [], isLoading, isError } = useEvents();
+  const { data: rawEvents = [], isLoading, isError } = usePublicEvents();
 
   const [query, setQuery] = useState(initialQuery);
   const [location, setLocation] = useState(initialLocation);

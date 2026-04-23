@@ -26,7 +26,7 @@ interface RealEvent {
         capacity: number;
         sold: number;
     }>;
-    status: string;
+    // status: string;  // REMOVE THIS - not needed for public events
 }
 
 interface GridProps {
@@ -197,7 +197,7 @@ function EventCard({ event, index }: { event: RealEvent; index: number }) {
                     )}
 
                     {/* Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/70 via-transparent to-transparent" />
+                    <div className="absolute inset-0 bg-linear-to-t from-zinc-950/70 via-transparent to-transparent" />
 
                     {/* Category pill */}
                     <div className="absolute top-3 left-3">

@@ -39,7 +39,6 @@ export function LoginForm() {
         mutate(submitData, {
             onSuccess: (res) => {
                 if (!res.success) {
-                    // FIX: Use the 'in' operator to prove to TS that 'errors' exists
                     if ("errors" in res && res.errors) {
                         Object.entries(res.errors).forEach(([key, messages]) => {
                             setError(key as keyof LoginValues, { 
@@ -66,78 +65,95 @@ export function LoginForm() {
     };
 
     return (
-        <div className="bg-white border border-zinc-200 p-8 sm:p-12 shadow-sm relative w-full lg:w-auto max-w-125 lg:max-w-none mx-auto select-none">
-            <div className="absolute top-0 left-0 w-full h-1 bg-zinc-950" />
-            
-            <div className="mb-10 flex justify-between items-start gap-4">
-                <div>
-                    <h2 className="text-2xl font-bold text-zinc-950 uppercase tracking-tighter">
-                        Login
-                    </h2>
-
-                </div>
-                <div className="shrink-0 w-10 h-10 bg-zinc-50 border border-zinc-200 flex items-center justify-center">
-                    <div className="w-2 h-2 bg-zinc-950 rotate-45" />
-                </div>
-            </div>
-
-            <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-                <InputField 
-                    label="email" 
-                    icon={Mail} 
-                    type="email" 
-                    placeholder="name@company.com" 
-                    disabled={isPending}
-                    error={errors.email?.message}
-                    {...register("email", {
-                        onChange: () => clearErrors("email")
-                    })}
-                />
+        <div className="w-full max-w-sm sm:max-w-md mx-auto px-4 sm:px-0">
+            <div className="bg-white rounded-xl sm:rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+                {/* Top accent bar */}
+                <div className="h-0.5 sm:h-1 bg-emerald-500" />
                 
-                <InputField 
-                    label="password" 
-                    icon={Lock} 
-                    type="password" 
-                    placeholder="••••••••••••" 
-                    disabled={isPending}
-                    forgotPasswordLink={true}
-                    error={errors.password?.message}
-                    {...register("password", {
-                        onChange: () => clearErrors("password")
-                    })}
-                />
+                <div className="p-5 sm:p-6 md:p-8 lg:p-10">
+                    {/* Header */}
+                    <div className="mb-5 sm:mb-6 md:mb-8">
+                        <h2 className="text-xl sm:text-2xl font-black text-zinc-950 uppercase tracking-tighter">
+                            Welcome Back
+                        </h2>
+                        <p className="text-[9px] sm:text-[10px] font-mono text-zinc-400 mt-1 uppercase tracking-wider">
+                            Sign in to your account
+                        </p>
+                    </div>
 
-                <div className="pt-4 space-y-4">
-                    <button 
-                        type="submit"
-                        disabled={isPending}
-                        className={`group w-full bg-zinc-950 text-white py-5 font-bold text-xs uppercase tracking-[0.3em] flex items-center justify-center gap-3 transition-all active:scale-[0.99] ${
-                            isPending ? 'opacity-70 cursor-not-allowed' : 'hover:bg-zinc-900'
-                        }`}
-                    >
-                        <LogIn className={`w-4 h-4 ${isPending ? 'animate-pulse' : 'text-emerald-500'}`} />
-                        {isPending ? "Logging In..." : "Login"}
-                        {!isPending && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
-                    </button>
+                    <form className="space-y-4 sm:space-y-5 md:space-y-6" onSubmit={handleSubmit(onSubmit)}>
+                        <InputField 
+                            label="Email" 
+                            icon={Mail} 
+                            type="email" 
+                            placeholder="name@company.com" 
+                            disabled={isPending}
+                            error={errors.email?.message}
+                            required
+                            {...register("email", {
+                                onChange: () => clearErrors("email")
+                            })}
+                        />
+                        
+                        <InputField 
+                            label="Password" 
+                            icon={Lock} 
+                            type="password" 
+                            placeholder="••••••••" 
+                            disabled={isPending}
+                            forgotPasswordLink={true}
+                            error={errors.password?.message}
+                            required
+                            {...register("password", {
+                                onChange: () => clearErrors("password")
+                            })}
+                        />
 
-                    <div className="flex items-center gap-3 bg-zinc-50 border border-zinc-100 p-4">
-                        <ShieldAlert className="w-4 h-4 text-zinc-400" />
-                        <p className="text-[9px] font-mono text-zinc-400 leading-tight uppercase tracking-wider">
-                            Unauthorized access attempts are logged and mapped to origin IP.
+                        <div className="pt-3 sm:pt-4">
+                            <button 
+                                type="submit"
+                                disabled={isPending}
+                                className={`
+                                    w-full bg-zinc-950 text-white rounded-lg sm:rounded-xl 
+                                    py-3 sm:py-4 
+                                    font-bold text-[10px] sm:text-xs uppercase tracking-[0.2em] 
+                                    flex items-center justify-center gap-2 sm:gap-3
+                                    transition-all duration-300
+                                    hover:bg-zinc-900 hover:shadow-md
+                                    active:scale-[0.98]
+                                    disabled:opacity-70 disabled:cursor-not-allowed
+                                `}
+                            >
+                                <LogIn className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isPending ? 'animate-pulse' : 'text-emerald-400'}`} />
+                                {isPending ? "Logging In..." : "Sign In"}
+                                {!isPending && (
+                                    <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform group-hover:translate-x-1" />
+                                )}
+                            </button>
+                        </div>
+                    </form>
+
+                    {/* Sign Up Link */}
+                    <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-stone-100 text-center">
+                        <p className="text-[9px] sm:text-[10px] font-mono text-zinc-500">
+                            Don't have an account? &nbsp;
+                            <Link 
+                                href="/register" 
+                                className="font-bold text-zinc-950 hover:text-emerald-600 transition-colors"
+                            >
+                                Sign Up
+                            </Link>
+                        </p>
+                    </div>
+
+                    {/* Security Note */}
+                    <div className="mt-4 sm:mt-6 flex items-center justify-center gap-1.5 sm:gap-2">
+                        <ShieldAlert className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-stone-400" />
+                        <p className="text-[6px] sm:text-[7px] font-mono text-stone-400 uppercase tracking-wider">
+                            Secure • Encrypted • Protected
                         </p>
                     </div>
                 </div>
-            </form>
-
-            <div className="mt-10 pt-8 border-t border-zinc-100 flex flex-col items-center gap-6">
-                <p className="text-xs text-zinc-400 font-medium">
-                    New User? &nbsp;
-                    <Link 
-                        href="/register" 
-                        className="text-zinc-950 font-bold underline decoration-emerald-500 underline-offset-4 uppercase tracking-tighter hover:text-emerald-600 transition-colors">
-                        Sign Up
-                    </Link>
-                </p>
             </div>
         </div>
     );

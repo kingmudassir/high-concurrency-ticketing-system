@@ -92,13 +92,33 @@ export default async function EventDetailPage({ params }: Props) {
 }
 
 // Helper function to fetch related events
+// Helper function to fetch related events (only active/upcoming)
 async function fetchRelatedEvents(category: string, currentEventId: string) {
     const prisma = getPrisma();
+    const now = new Date();
+    
     const events = await prisma.event.findMany({
         where: {
             category: category,
             id: { not: currentEventId },
             status: "PUBLISHED",
+            // Only fetch non-expired events
+            OR: [
+                // Events that haven't started yet
+                { startDate: { gt: now } },
+                // Events that are currently ongoing (have endDate in the future)
+                { 
+                    AND: [
+                        { startDate: { lte: now } },
+                        { endDate: { gt: now } }
+                    ]
+                },
+                // Events with no endDate that are today or in the future
+                {
+                    endDate: null,
+                    startDate: { gte: new Date(now.setHours(0, 0, 0, 0)) }
+                }
+            ]
         },
         include: {
             ticketTiers: {
