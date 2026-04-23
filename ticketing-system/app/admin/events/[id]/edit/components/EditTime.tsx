@@ -37,7 +37,7 @@ const TIME_FIELDS = [
     },
 ];
 
-export function TimingSection({ 
+export function EditTime({ 
     startDate,
     endDate,
     doorsOpen,

@@ -25,7 +25,7 @@ interface InstructionsSectionProps {
     onCustomAdd: () => void;
 }
 
-export function InstructionsSection({
+export function EditInstructions({
     instructions, customInstruction,
     onToggle, onCustomChange, onCustomAdd,
 }: InstructionsSectionProps) {

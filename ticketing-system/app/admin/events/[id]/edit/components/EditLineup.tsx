@@ -27,7 +27,7 @@ interface LineupSectionProps {
     onChange: (lineup: LineupAct[]) => void;
 }
 
-export function LineupSection({ lineup, onChange }: LineupSectionProps) {
+export function EditLineup({ lineup, onChange }: LineupSectionProps) {
     const [focusedAct, setFocusedAct] = useState<string | null>(null);
     const [hoveredAct, setHoveredAct] = useState<string | null>(null);
 

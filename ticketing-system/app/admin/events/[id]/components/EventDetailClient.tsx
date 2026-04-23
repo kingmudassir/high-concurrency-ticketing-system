@@ -5,48 +5,43 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-    CalendarDays,
-    MapPin,
-    Ticket,
+    ArrowLeft,
     Pencil,
     Trash2,
-    ArrowLeft,
-    Users,
-    DollarSign,
-    Activity,
     ShieldAlert,
-    CheckCircle2,
-    Clock,
-    XCircle,
-    Search,
-    ChevronLeft,
-    ChevronRight,
-    Zap,
-    TrendingUp,
+    Eye,
+    Ticket as TicketIcon,
 } from "lucide-react";
 import { format } from "date-fns";
 
 import { deleteEventAction } from "../actions/delete-event";
 import { useEvent } from "@/app/hooks/Admin-Hooks/Fetch-Events/useEvent";
+import TicketContainer from "./TicketContainer";
+import TicketImageSection from "./TicketImageSection";
+import TicketInfoSection from "./TicketInfoSection";
+import TicketQRCode from "./TicketQRCode";
+import TicketStatusBadge from "./TicketStatusBadge";
+import TicketFooter from "./TicketFooter";
 
-const TICKETS_PER_PAGE = 10;
-
-const ticketStatusConfig: Record<string, { label: string; color: string; icon: any }> = {
-    CONFIRMED: { label: "Confirmed", color: "text-emerald-600 bg-emerald-50 border-emerald-100", icon: CheckCircle2 },
-    PENDING:   { label: "Pending",   color: "text-zinc-400 bg-zinc-50 border-zinc-100",          icon: Clock },
-    USED:      { label: "Used",      color: "text-zinc-400 bg-zinc-50 border-zinc-100",          icon: CheckCircle2 },
-    EXPIRED:   { label: "Expired",   color: "text-red-400 bg-red-50 border-red-100",             icon: XCircle },
-    CANCELLED: { label: "Cancelled", color: "text-red-500 bg-red-50 border-red-100",             icon: XCircle },
+// Demo user data - same for all events
+const DEMO_USER = {
+    username: "john_doe",
+    email: "john.doe@example.com",
+    id: "demo_user_001"
 };
 
-function getEventStatus(event: { startDate: Date; ticketsSold: number; totalTickets: number }) {
-    const now = new Date();
-    const eventDate = new Date(event.startDate);
-    if (eventDate < now) return { label: "Ended",    color: "text-zinc-300 bg-white border-zinc-100" };
-    if (event.ticketsSold >= event.totalTickets) return { label: "Sold Out", color: "text-zinc-600 bg-zinc-100 border-zinc-200" };
-    if (eventDate > new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)) return { label: "Upcoming", color: "text-zinc-400 bg-zinc-50 border-zinc-100" };
-    return { label: "Active", color: "text-emerald-600 bg-emerald-50 border-emerald-100" };
-}
+// Demo ticket data - will be customized per event
+const getDemoTicket = (event: any, tier: any) => ({
+    id: `DEMO-${event.id.slice(0, 8).toUpperCase()}`,
+    status: "CONFIRMED",
+    user: DEMO_USER,
+    tier: tier,
+    createdAt: new Date(),
+    pricePaid: parseInt(tier.price) || 0,
+    gate: "Main Entrance",
+    seat: tier.name === "VIP" ? "VIP Section - Row A" : "General Admission",
+    orderNumber: `ORD-${event.id.slice(0, 8).toUpperCase()}`,
+});
 
 interface Props {
     eventId: string;
@@ -56,9 +51,6 @@ export default function EventDetailClient({ eventId }: Props) {
     const { data: event, isLoading, isError } = useEvent(eventId);
     const [isDeleteConfirm, setIsDeleteConfirm] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
-    const [ticketSearch, setTicketSearch] = useState("");
-    const [ticketPage, setTicketPage] = useState(1);
-    const [ticketFilter, setTicketFilter] = useState("all");
 
     const router = useRouter();
     const queryClient = useQueryClient();
@@ -102,45 +94,12 @@ export default function EventDetailClient({ eventId }: Props) {
         );
     }
 
-    // ─── Derived Data ────────────────────────────────────────────────────────────
-    const status = getEventStatus(event);
-    
-    // Calculate min and max prices from ticket tiers
-    const minPrice = event.ticketTiers?.length > 0 
-        ? Math.min(...event.ticketTiers.map(t => t.price))
-        : 0;
-    const maxPrice = event.ticketTiers?.length > 0 
-        ? Math.max(...event.ticketTiers.map(t => t.price))
-        : 0;
-    
-    // Calculate revenue based on actual ticket sales with their tier prices
-    const revenue = event.tickets.reduce((sum, ticket) => sum + (ticket.pricePaid || 0), 0);
-    const soldPct = event.totalTickets > 0 ? Math.round((event.ticketsSold / event.totalTickets) * 100) : 0;
-    const remaining = event.totalTickets - event.ticketsSold;
-
-    // Ticket breakdown by status
-    const statusCounts = event.tickets.reduce((acc, t) => {
-        acc[t.status] = (acc[t.status] || 0) + 1;
-        return acc;
-    }, {} as Record<string, number>);
-
-    const filteredTickets = event.tickets.filter((t) => {
-        const matchSearch =
-            t.user.username.toLowerCase().includes(ticketSearch.toLowerCase()) ||
-            t.user.email.toLowerCase().includes(ticketSearch.toLowerCase()) ||
-            t.id.toLowerCase().includes(ticketSearch.toLowerCase());
-        const matchFilter = ticketFilter === "all" || t.status === ticketFilter;
-        return matchSearch && matchFilter;
-    });
-
-    const totalTicketPages = Math.ceil(filteredTickets.length / TICKETS_PER_PAGE);
-    const ticketStart = (ticketPage - 1) * TICKETS_PER_PAGE;
-    const paginatedTickets = filteredTickets.slice(ticketStart, ticketStart + TICKETS_PER_PAGE);
-
-    // Price display string
-    const priceDisplay = minPrice === maxPrice 
-        ? `₨ ${minPrice.toLocaleString()}`
-        : `₨ ${minPrice.toLocaleString()} - ₨ ${maxPrice.toLocaleString()}`;
+    const formatTime = (date: Date) => {
+        return new Date(date).toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+    };
 
     // ─── Delete Handler ──────────────────────────────────────────────────────────
     async function handleDelete() {
@@ -157,14 +116,32 @@ export default function EventDetailClient({ eventId }: Props) {
         }
     }
 
-    // ─── Edit Handler ────────────────────────────────────────────────────────────
     function handleEdit() {
         if (event) {
             router.push(`/admin/events/${event.id}/edit`);
         }
     }
 
-    // ─── Render ──────────────────────────────────────────────────────────────────
+    // Get the first tier for demo ticket, or create a default one
+    const demoEvent = event;
+    const firstTier = event.ticketTiers?.[0] || { name: "General Admission", price: "0" };
+    const demoUser = {
+        username: "john_doe",
+        email: "john.doe@example.com",
+        id: "demo_user_001"
+    };
+    const demo = {
+        id: `DEMO-${event.id.slice(0, 8).toUpperCase()}`,
+        status: "VALID",
+        user: demoUser,
+        tier: firstTier,
+        createdAt: new Date(),
+        pricePaid: firstTier.price,
+        gate: "Main Entrance",
+        seat: firstTier.name === "VIP" ? "VIP Section - Row A" : "General Admission",
+        orderNumber: `ORD-${event.id.slice(0, 8).toUpperCase()}`,
+    };
+
     return (
         <>
             <div className="min-h-screen bg-zinc-50">
@@ -173,7 +150,7 @@ export default function EventDetailClient({ eventId }: Props) {
                 <div className="sticky top-0 z-40 bg-white border-b border-zinc-200">
                     <div className="max-w-7xl mx-auto px-6 sm:px-10 py-4 flex items-center justify-between gap-4">
                         <button
-                            onClick={() => router.back()}
+                            onClick={() => router.push("/admin/events")}
                             className="group flex items-center gap-2 text-zinc-400 hover:text-zinc-950 transition-colors"
                         >
                             <div className="w-7 h-7 border border-zinc-200 group-hover:border-zinc-950 flex items-center justify-center transition-colors">
@@ -185,9 +162,6 @@ export default function EventDetailClient({ eventId }: Props) {
                         </button>
 
                         <div className="flex items-center gap-2">
-                            <span className={`inline-flex items-center px-2.5 py-1 text-[8px] font-mono font-bold uppercase tracking-widest border ${status.color}`}>
-                                {status.label}
-                            </span>
                             <span className="text-[9px] font-mono text-zinc-300 hidden sm:block">
                                 {event.id}
                             </span>
@@ -212,309 +186,122 @@ export default function EventDetailClient({ eventId }: Props) {
                     </div>
                 </div>
 
-                <div className="max-w-7xl mx-auto px-6 sm:px-10 py-10 space-y-10">
-
-                    {/* ── Event Header ────────────────────────────────────────── */}
-                    <div className="bg-white border border-zinc-200 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-zinc-950" />
-                        <div className="p-8 sm:p-10">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-8 h-px bg-emerald-600" />
-                                <span className="text-[9px] font-mono font-bold tracking-[0.4em] uppercase text-zinc-400">
-                                    Event_Profile
-                                </span>
-                            </div>
-
-                            <h1 className="text-3xl sm:text-5xl font-bold text-zinc-950 uppercase tracking-tighter leading-[0.9] mb-6">
-                                {event.title}
-                            </h1>
-
-                            {event.description && (
-                                <p className="text-zinc-500 text-base leading-relaxed max-w-2xl mb-8 font-medium">
-                                    {event.description}
-                                </p>
-                            )}
-
-                            <div className="flex flex-wrap items-center gap-6 text-[10px] font-mono text-zinc-400">
-                                <div className="flex items-center gap-2">
-                                    <MapPin className="w-3 h-3 text-zinc-300" />
-                                    <span>{event.location}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <CalendarDays className="w-3 h-3 text-zinc-300" />
-                                    <span>{format(new Date(event.startDate), "dd MMM yyyy, HH:mm")}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Clock className="w-3 h-3 text-zinc-300" />
-                                    <span>Created {format(new Date(event.createdAt), "dd MMM yyyy")}</span>
-                                </div>
-                            </div>
+                {/* ── Event Header Summary ─────────────────────────────────────── */}
+                <div className="max-w-7xl mx-auto px-6 sm:px-10 py-8">
+                    <div className="bg-white border border-zinc-200 rounded-xl p-6 mb-8">
+                        <h1 className="text-2xl font-bold text-zinc-950 mb-2">{event.title}</h1>
+                        <div className="flex flex-wrap gap-4 text-sm text-zinc-500">
+                            <span>{event.location}</span>
+                            <span>•</span>
+                            <span>{format(new Date(event.startDate), "dd MMM yyyy, HH:mm")}</span>
+                            <span>•</span>
+                            <span className="text-emerald-600 font-medium">{event.ticketTiers?.length || 0} ticket tiers</span>
                         </div>
                     </div>
 
-                    {/* ── Stat Cards ──────────────────────────────────────────── */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                        {[
-                            {
-                                label: "Revenue",
-                                value: `₨ ${revenue.toLocaleString()}`,
-                                sub: `${event.ticketsSold} tickets sold`,
-                                icon: DollarSign,
-                                accent: "bg-emerald-500",
-                            },
-                            {
-                                label: "Price Range",
-                                value: priceDisplay,
-                                sub: `${event.ticketTiers?.length || 0} ticket tiers`,
-                                icon: Ticket,
-                                accent: "bg-emerald-500",
-                            },
-                            {
-                                label: "Tickets_Sold",
-                                value: event.ticketsSold.toString(),
-                                sub: `${soldPct}% of capacity`,
-                                icon: Ticket,
-                                accent: soldPct === 100 ? "bg-zinc-950" : "bg-emerald-500",
-                            },
-                            {
-                                label: "Remaining",
-                                value: remaining.toString(),
-                                sub: `of ${event.totalTickets} total`,
-                                icon: TrendingUp,
-                                accent: remaining === 0 ? "bg-red-500" : "bg-zinc-300",
-                            },
-                            {
-                                label: "Total_Buyers",
-                                value: new Set(event.tickets.map(t => t.user.id)).size.toString(),
-                                sub: "Unique users",
-                                icon: Users,
-                                accent: "bg-zinc-300",
-                            },
-                        ].map((card) => (
-                            <div key={card.label} className="bg-white border border-zinc-200 p-6 relative hover:border-zinc-400 transition-colors">
-                                <div className={`absolute top-0 left-0 w-full h-0.5 ${card.accent}`} />
-                                <div className="w-8 h-8 bg-zinc-50 border border-zinc-100 flex items-center justify-center mb-4">
-                                    <card.icon className="w-4 h-4 text-zinc-400" />
-                                </div>
-                                <p className="text-[9px] font-mono font-bold text-zinc-400 uppercase tracking-[0.3em] mb-1">
-                                    {card.label}
-                                </p>
-                                <p className="text-2xl font-bold text-zinc-950 tracking-tighter tabular-nums leading-none">
-                                    {card.value}
-                                </p>
-                                <p className="text-[9px] font-mono text-zinc-400 mt-1.5">{card.sub}</p>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* ── Capacity Bar ────────────────────────────────────────── */}
-                    <div className="bg-white border border-zinc-200 p-6 sm:p-8">
-                        <div className="flex items-center justify-between mb-4">
-                            <div>
-                                <p className="text-[9px] font-mono font-bold text-zinc-400 uppercase tracking-[0.3em]">
-                                    Capacity_Utilization
-                                </p>
-                                <p className="text-xs font-bold text-zinc-950 mt-1">
-                                    {event.ticketsSold.toLocaleString()} / {event.totalTickets.toLocaleString()} tickets sold
-                                </p>
-                            </div>
-                            <span className="text-3xl font-bold text-zinc-950 tabular-nums tracking-tighter">
-                                {soldPct}%
+                    {/* ── Demo Ticket Preview ───────────────────────────────────── */}
+                    <div className="mb-6">
+                        <div className="flex items-center gap-2 mb-4">
+                            <TicketIcon className="w-4 h-4 text-emerald-500" />
+                            <h2 className="text-sm font-bold text-zinc-950 uppercase tracking-tight">
+                                Sample Ticket Preview
+                            </h2>
+                            <span className="text-[10px] font-mono text-zinc-400 bg-stone-100 px-2 py-0.5 rounded">
+                                DEMO
                             </span>
                         </div>
-                        <div className="h-2 bg-zinc-100 overflow-hidden">
-                            <div
-                                className={`h-full transition-all duration-1000 ${soldPct === 100 ? "bg-zinc-950" : "bg-emerald-500"}`}
-                                style={{ width: `${soldPct}%` }}
-                            />
-                        </div>
-                        {/* Ticket tiers breakdown */}
-                        {event.ticketTiers && event.ticketTiers.length > 0 && (
-                            <div className="mt-6 flex flex-wrap gap-3">
-                                {event.ticketTiers.map((tier) => (
-                                    <div key={tier.id} className="flex items-center gap-2 px-3 py-1.5 border border-zinc-200 bg-zinc-50 text-[9px] font-mono font-bold uppercase tracking-widest">
-                                        <span>{tier.name}</span>
-                                        <span className="text-emerald-600">₨ {tier.price.toLocaleString()}</span>
-                                        <span className="opacity-60">({tier.sold}/{tier.capacity})</span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                        {/* Status breakdown chips */}
-                        <div className="mt-4 flex flex-wrap gap-3">
-                            {Object.entries(statusCounts).map(([status, count]) => {
-                                const cfg = ticketStatusConfig[status] ?? { label: status, color: "text-zinc-400 bg-zinc-50 border-zinc-100" };
-                                return (
-                                    <div key={status} className={`flex items-center gap-2 px-3 py-1.5 border text-[9px] font-mono font-bold uppercase tracking-widest ${cfg.color}`}>
-                                        <span>{cfg.label}</span>
-                                        <span className="opacity-60">{count}</span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
+                        <p className="text-[9px] text-stone-400 mb-4">
+                            This is how a purchased ticket will appear to customers
+                        </p>
 
-                    {/* ── Ticket Ledger ────────────────────────────────────────── */}
-                    <div className="bg-white border border-zinc-200">
-                        <div className="px-6 sm:px-8 py-5 border-b border-zinc-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                            <div>
-                                <p className="text-xs font-bold text-zinc-950 uppercase tracking-tight">Ticket_Ledger</p>
-                                <p className="text-[9px] font-mono text-zinc-400 mt-0.5 uppercase tracking-widest">
-                                    {event.tickets.length} total issued tickets
-                                </p>
-                            </div>
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
-                                {/* Search */}
-                                <div className="flex items-center gap-2 border border-zinc-200 bg-zinc-50 px-3 py-2 w-full sm:w-56">
-                                    <Search className="w-3 h-3 text-zinc-300 shrink-0" />
-                                    <input
-                                        type="text"
-                                        placeholder="Search buyer or ID..."
-                                        value={ticketSearch}
-                                        onChange={(e) => { setTicketSearch(e.target.value); setTicketPage(1); }}
-                                        className="text-[10px] font-mono bg-transparent outline-none text-zinc-600 placeholder-zinc-300 w-full"
+                        <TicketContainer status="VALID" variant="horizontal">
+                            <div className="flex flex-col sm:flex-row">
+                                {/* Left: Event Image */}
+                                <div className="sm:w-2/5">
+                                    <TicketImageSection 
+                                        imageUrl={event.imageUrl}
+                                        eventTitle={event.title}
+                                        className="w-full h-48 sm:h-full rounded-t-2xl sm:rounded-l-2xl sm:rounded-tr-none"
                                     />
                                 </div>
-                                {/* Filter */}
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                    {["all", "CONFIRMED", "PENDING", "USED", "EXPIRED", "CANCELLED"].map((f) => (
-                                        <button
-                                            key={f}
-                                            onClick={() => { setTicketFilter(f); setTicketPage(1); }}
-                                            className={`px-2.5 py-1.5 text-[8px] font-mono font-bold uppercase tracking-widest border transition-colors ${
-                                                ticketFilter === f
-                                                    ? "bg-zinc-950 text-white border-zinc-950"
-                                                    : "bg-white text-zinc-400 border-zinc-200 hover:border-zinc-400"
-                                            }`}
-                                        >
-                                            {f === "all" ? "All" : f.charAt(0) + f.slice(1).toLowerCase()}
-                                        </button>
-                                    ))}
+
+                                {/* Right: Ticket Info */}
+                                <div className="sm:w-3/5 p-6">
+                                    <TicketInfoSection 
+                                        eventTitle={event.title}
+                                        venue={event.location}
+                                        city={event.city || 'TBD'}
+                                        date={event.startDate}
+                                        time={formatTime(event.startDate)}
+                                        gate={demo.gate}
+                                        seat={demo.seat}
+                                        ticketType={demo.tier.name}
+                                        ticketId={demo.id}
+                                        orderNumber={demo.orderNumber}
+                                        validUntil={event.endDate || undefined}
+                                    />
+
+                                    {/* Demo User Info */}
+                                    <div className="mt-4 p-3 bg-stone-50 rounded-lg border border-stone-100">
+                                        <p className="text-[8px] font-mono font-bold text-stone-400 uppercase tracking-widest mb-2">
+                                            Ticket Holder (Demo)
+                                        </p>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm font-bold text-stone-800">{demo.user.username}</p>
+                                                <p className="text-[9px] font-mono text-stone-500">{demo.user.email}</p>
+                                            </div>
+                                            <TicketStatusBadge 
+                                                status="VALID"
+                                                size="sm"
+                                                variant="ghost"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Purchased Info */}
+                                    <div className="mt-3 flex items-center justify-between text-[9px] font-mono">
+                                        <span className="text-stone-400">Purchased: {format(new Date(), "dd MMM yyyy, HH:mm")}</span>
+                                        <span className="text-stone-400">Price: ₨ {demo.pricePaid.toLocaleString()}</span>
+                                    </div>
+
+                                    {/* QR Code */}
+                                    <div className="flex justify-center mt-4 pt-2 border-t border-stone-100">
+                                        <TicketQRCode 
+                                            ticketId={demo.id}
+                                            eventId={event.id}
+                                            size={80}
+                                            showDownload={true}
+                                        />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        {paginatedTickets.length === 0 ? (
-                            <div className="px-8 py-16 text-center">
-                                <Ticket className="w-6 h-6 text-zinc-200 mx-auto mb-3" />
-                                <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">
-                                    No tickets match criteria
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="border-b border-zinc-100 bg-zinc-50">
-                                            {["Ticket ID", "Tier", "Buyer", "Email", "Purchased", "Expires", "Status"].map((h) => (
-                                                <th key={h} className="text-left px-6 py-3 text-[8px] font-mono font-bold text-zinc-400 uppercase tracking-[0.2em] whitespace-nowrap">
-                                                    {h}
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {paginatedTickets.map((ticket) => {
-                                            const cfg = ticketStatusConfig[ticket.status] ?? {
-                                                label: ticket.status,
-                                                color: "text-zinc-400 bg-zinc-50 border-zinc-100",
-                                                icon: Clock,
-                                            };
-                                            const StatusIcon = cfg.icon;
-                                            return (
-                                                <tr key={ticket.id} className="border-b border-zinc-50 hover:bg-zinc-50 transition-colors">
-                                                    <td className="px-6 py-4">
-                                                        <span
-                                                            className="text-[9px] font-mono text-zinc-400 cursor-help border-b border-dotted border-zinc-200"
-                                                            title={ticket.id}
-                                                        >
-                                                            {ticket.id.slice(0, 8)}...
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-[9px] font-mono font-bold text-emerald-600">
-                                                        {ticket.tier?.name || "N/A"}
-                                                    </td>
-                                                    <td className="px-6 py-4 text-[10px] font-bold text-zinc-950 uppercase tracking-tight whitespace-nowrap">
-                                                        {ticket.user.username}
-                                                    </td>
-                                                    <td className="px-6 py-4 text-[9px] font-mono text-zinc-400">
-                                                        {ticket.user.email}
-                                                    </td>
-                                                    <td className="px-6 py-4 text-[9px] font-mono text-zinc-400 whitespace-nowrap">
-                                                        {format(new Date(ticket.createdAt), "dd MMM yy, HH:mm")}
-                                                    </td>
-                                                    <td className="px-6 py-4 text-[9px] font-mono text-zinc-400 whitespace-nowrap">
-                                                        {format(new Date(ticket.expiresAt), "dd MMM yy, HH:mm")}
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[8px] font-mono font-bold uppercase tracking-widest border ${cfg.color}`}>
-                                                            <StatusIcon className="w-2.5 h-2.5" />
-                                                            {cfg.label}
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-
-                        {/* Ticket pagination */}
-                        {totalTicketPages > 1 && (
-                            <div className="px-6 py-4 border-t border-zinc-100 flex items-center justify-between">
-                                <span className="text-[9px] font-mono text-zinc-400 uppercase tracking-widest">
-                                    {ticketStart + 1}–{Math.min(ticketStart + TICKETS_PER_PAGE, filteredTickets.length)} of {filteredTickets.length}
-                                </span>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => setTicketPage(p => Math.max(p - 1, 1))}
-                                        disabled={ticketPage === 1}
-                                        className="w-7 h-7 flex items-center justify-center border border-zinc-200 disabled:opacity-40 hover:bg-zinc-50 transition-colors"
-                                    >
-                                        <ChevronLeft className="w-3 h-3" />
-                                    </button>
-                                    {Array.from({ length: Math.min(totalTicketPages, 5) }, (_, i) => i + 1).map((p) => (
-                                        <button
-                                            key={p}
-                                            onClick={() => setTicketPage(p)}
-                                            className={`w-7 h-7 text-[10px] font-mono font-bold border transition-colors ${
-                                                ticketPage === p
-                                                    ? "bg-zinc-950 text-white border-zinc-950"
-                                                    : "bg-white text-zinc-400 border-zinc-200 hover:border-zinc-400"
-                                            }`}
-                                        >
-                                            {p}
-                                        </button>
-                                    ))}
-                                    <button
-                                        onClick={() => setTicketPage(p => Math.min(p + 1, totalTicketPages))}
-                                        disabled={ticketPage === totalTicketPages}
-                                        className="w-7 h-7 flex items-center justify-center border border-zinc-200 disabled:opacity-40 hover:bg-zinc-50 transition-colors"
-                                    >
-                                        <ChevronRight className="w-3 h-3" />
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Footer */}
-                        <div className="px-6 py-3 border-t border-zinc-100 bg-zinc-50 flex items-center justify-between">
-                            <span className="text-[8px] font-mono text-zinc-400 uppercase tracking-widest">
-                                Pipeline_Integrity: 100%
-                            </span>
-                            <Zap className="w-3 h-3 text-emerald-500 fill-emerald-500" />
-                        </div>
+                            <TicketFooter 
+                                terms={[
+                                    "Valid only for the selected event",
+                                    "Photo ID required for entry",
+                                    "No refunds or exchanges"
+                                ]}
+                                poweredBy="RushTicket"
+                                showSecurityBadge={true}
+                                showSupportBadge={false}
+                            />
+                        </TicketContainer>
                     </div>
 
-                    {/* System footer */}
-                    <div className="flex items-center justify-between border-t border-zinc-200 pt-6">
-                        <span className="text-[8px] font-mono text-zinc-300 uppercase tracking-widest">
-                            Last Updated: {format(new Date(event.updatedAt), "dd MMM yyyy, HH:mm:ss")}
-                        </span>
-                        <span className="text-[8px] font-mono text-zinc-300 uppercase tracking-widest">
-                            Verification_Hash: {event.id.slice(-8)}
-                        </span>
+                    {/* Ticket Tiers Info */}
+                    <div className="mt-8">
+                        <h3 className="text-xs font-bold text-zinc-950 uppercase tracking-tight mb-3">Ticket Tiers</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                            {event.ticketTiers?.map((tier: any) => (
+                                <div key={tier.id} className="bg-white border border-zinc-200 rounded-lg p-4">
+                                    <p className="font-bold text-zinc-950">{tier.name}</p>
+                                    <p className="text-emerald-600 font-bold mt-1">₨ {tier.price.toLocaleString()}</p>
+                                    <p className="text-[10px] text-stone-400 mt-1">Capacity: {tier.capacity}</p>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -538,7 +325,7 @@ export default function EventDetailClient({ eventId }: Props) {
                                         Confirm Deletion
                                     </h3>
                                     <p className="text-[10px] font-mono text-zinc-400 mt-1 leading-relaxed uppercase tracking-wide">
-                                        This will permanently delete the event and all {event.tickets.length} associated tickets. This action cannot be undone.
+                                        This will permanently delete the event and all associated tickets. This action cannot be undone.
                                     </p>
                                 </div>
                             </div>

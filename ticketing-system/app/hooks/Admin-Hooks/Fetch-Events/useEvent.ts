@@ -13,8 +13,6 @@ export function useEvent(eventId: string) {
             }
             return response.data;
         },
-        staleTime: 10_000,
-        refetchInterval: 30_000,
         enabled: !!eventId,
     });
 }

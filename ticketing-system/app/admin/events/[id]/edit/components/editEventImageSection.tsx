@@ -12,7 +12,7 @@ interface EventImageSectionProps {
     onImageRemove: () => void;
 }
 
-export function editEventImageSection({
+export function EditEventImageSection({
     imagePreview,
     imageName,
     imageUrl,

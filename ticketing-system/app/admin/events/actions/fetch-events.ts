@@ -6,28 +6,11 @@ export async function fetchAllEventsWithTickets() {
     const prisma = getPrisma();
 
     try {
-        const now = new Date();
-
-        // Database Query with Include - Only fetch non-expired events
+        // Fetch ALL published events (including ended ones) for admin panel
         const events = await prisma.event.findMany({
             where: {
                 status: "PUBLISHED",
-                OR: [
-                    // Events that haven't started yet
-                    { startDate: { gt: now } },
-                    // Events that are currently ongoing (have endDate in the future)
-                    { 
-                        AND: [
-                            { startDate: { lte: now } },
-                            { endDate: { gt: now } }
-                        ]
-                    },
-                    // Events with no endDate that haven't passed (single day events not yet started)
-                    {
-                        endDate: null,
-                        startDate: { gt: now }
-                    }
-                ]
+                // No date filters - show all events including ended ones
             },
             include: {
                 tickets: {
@@ -54,7 +37,7 @@ export async function fetchAllEventsWithTickets() {
                 }
             },
             orderBy: {
-                startDate: 'asc'
+                startDate: 'asc' // Sort by start date ascending
             }
         });
 
@@ -62,7 +45,7 @@ export async function fetchAllEventsWithTickets() {
         const formattedEvents = events.map(event => ({
             id: event.id,
             name: event.title,
-            title: event.title, // Add title for consistency
+            title: event.title,
             subtitle: event.subtitle,
             description: event.description,
             imageUrl: event.imageUrl,

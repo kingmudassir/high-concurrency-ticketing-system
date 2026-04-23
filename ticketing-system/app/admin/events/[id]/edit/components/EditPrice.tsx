@@ -26,7 +26,7 @@ interface TicketTiersSectionProps {
     onChange: (tiers: TicketTier[]) => void;
 }
 
-export function TicketTiersSection({ tiers, onChange }: TicketTiersSectionProps) {
+export function EditPrice({ tiers, onChange }: TicketTiersSectionProps) {
     const [focusedTier, setFocusedTier] = useState<string | null>(null);
     const [hoveredPreset, setHoveredPreset] = useState<string | null>(null);
 

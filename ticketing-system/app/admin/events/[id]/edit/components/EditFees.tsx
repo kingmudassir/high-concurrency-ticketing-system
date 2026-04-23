@@ -13,7 +13,7 @@ interface FeesSectionProps {
     tiers: TicketTier[]; // Change from firstTier to all tiers
 }
 
-export function FeesSection({
+export function EditFees({
     gstPercent, serviceFeePercent,
     onGstChange, onServiceFeeChange,
     tiers,

@@ -39,7 +39,7 @@ interface EventIdentitySectionProps {
     onDescriptionChange: (value: string) => void;
 }
 
-export function EventIdentitySection({ 
+export function EditEventIdentitySection({ 
     title, 
     subtitle, 
     description, 

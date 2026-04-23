@@ -47,7 +47,7 @@ function FieldLabel({ required, optional, icon, children }: FieldLabelProps) {
     );
 }
 
-export function VenueSection({ 
+export function EditVenue({ 
     location,
     address,
     city,

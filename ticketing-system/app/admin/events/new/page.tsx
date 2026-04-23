@@ -227,11 +227,7 @@ export default function CreateEventPage() {
 
     return (
         <div className="min-h-screen bg-linear-to-br from-stone-50 via-white to-stone-50 mb-10">
-            {/* Floating background orbs */}
-            <div className="fixed inset-0 pointer-events-none overflow-hidden">
-                <div className="absolute top-0 left-1/4 w-96 h-96 bg-linear-to-r from-purple-200/20 to-pink-200/20 rounded-full blur-3xl animate-pulse" />
-                <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-linear-to-r from-blue-200/15 to-cyan-200/15 rounded-full blur-3xl animate-pulse delay-1000" />
-            </div>
+
 
             {/* Sticky top bar */}
             <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-stone-200/50 shadow-sm">

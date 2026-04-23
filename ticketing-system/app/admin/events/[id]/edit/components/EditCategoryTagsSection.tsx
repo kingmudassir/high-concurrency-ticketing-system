@@ -27,7 +27,7 @@ interface CategoryTagsSectionProps {
     onCustomTagAdd: () => void;
 }
 
-export function CategoryTagsSection({
+export function EditCategoryTagsSection({
     category, selectedTags, customTag,
     onCategoryChange, onTagToggle, onCustomTagChange, onCustomTagAdd,
 }: CategoryTagsSectionProps) {
