@@ -44,6 +44,7 @@ export async function createEventAction(formData: FormData): Promise<ActionRespo
         const title        = formData.get("title")?.toString().trim();
         const subtitle     = formData.get("subtitle")?.toString().trim() || null;
         const description  = formData.get("description")?.toString().trim() || null;
+        const imageUrl     = formData.get("coverImage")?.toString().trim() || null; // ADD THIS
         const category     = formData.get("category")?.toString().trim();
         const location     = formData.get("location")?.toString().trim();
         const address      = formData.get("address")?.toString().trim() || null;
@@ -116,11 +117,6 @@ export async function createEventAction(formData: FormData): Promise<ActionRespo
         // ── Derive totalTickets ───────────────────────────────────────────
         const totalTickets = tiers.reduce((sum, t) => sum + (parseInt(t.capacity) || 0), 0);
 
-        // ── Image ─────────────────────────────────────────────────────────
-        // TODO: Upload image file from formData.get("image") to S3/Cloudinary
-        // and replace null with the returned URL.
-        const imageUrl: string | null = null;
-
         // ── Database transaction ──────────────────────────────────────────
         const newEvent = await prisma.$transaction(async (tx) => {
             const event = await tx.event.create({
@@ -128,7 +124,7 @@ export async function createEventAction(formData: FormData): Promise<ActionRespo
                     title,
                     subtitle,
                     description,
-                    imageUrl,
+                    imageUrl, // Now using the Cloudinary URL from formData
                     category,
                     tags,
                     location,

@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import EventsSearchBar from './Eventssearchbar';
 import EventsFilters from './Eventsfilters';
 import EventsGrid from './Eventsgrid';
 import EventsHeader from './Eventsheader';
-import { MOCK_EVENTS, type Event } from '../Mockdata';
+import { useEvents } from '@/app/hooks/Admin-Hooks/Fetch-Events/useEvents';
 
 interface Props {
   initialQuery: string;
@@ -15,21 +15,49 @@ interface Props {
   initialSort: string;
 }
 
+// Define the real event type based on your schema
+export interface RealEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  imageUrl: string | null;
+  category: string;
+  location: string;
+  city: string | null;
+  startDate: Date | string;
+  endDate: Date | string | null;
+  totalCapacity: number;
+  ticketsSold: number;
+  ticketTiers?: Array<{
+    id: string;
+    name: string;
+    price: number;
+    capacity: number;
+    sold: number;
+  }>;
+  status: string;
+}
+
 export default function EventsClient({ initialQuery, initialLocation, initialCategory, initialSort }: Props) {
   const router = useRouter();
   const pathname = usePathname();
+  const { data: rawEvents = [], isLoading, isError } = useEvents();
 
   const [query, setQuery] = useState(initialQuery);
   const [location, setLocation] = useState(initialLocation);
   const [category, setCategory] = useState(initialCategory);
   const [sort, setSort] = useState(initialSort);
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000]);
   const [dateFilter, setDateFilter] = useState<string>('any');
 
+  // Update URL when filters change
   const updateURL = (updates: Record<string, string>) => {
     const params = new URLSearchParams();
     const final = { q: query, location, category, sort, ...updates };
-    Object.entries(final).forEach(([k, v]) => { if (v && v !== 'all' && v !== 'trending' && v !== 'any') params.set(k, v); });
+    Object.entries(final).forEach(([k, v]) => { 
+      if (v && v !== 'all' && v !== 'trending' && v !== 'any') 
+        params.set(k, v); 
+    });
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
@@ -49,51 +77,172 @@ export default function EventsClient({ initialQuery, initialLocation, initialCat
     updateURL({ sort: s });
   };
 
-  // Client-side filtering (replace with API calls in production)
-  const filteredEvents = useMemo<Event[]>(() => {
-    let results = [...MOCK_EVENTS];
+  // Helper to get min price from ticket tiers
+  const getEventMinPrice = (event: RealEvent): number => {
+    if (event.ticketTiers && event.ticketTiers.length > 0) {
+      return Math.min(...event.ticketTiers.map((t: { price: number }) => t.price));
+    }
+    return 0;
+  };
 
+  // Helper to get demand percentage
+  const getDemandPercent = (event: RealEvent): number => {
+    if (event.totalCapacity === 0) return 0;
+    return Math.round((event.ticketsSold / event.totalCapacity) * 100);
+  };
+
+  // Helper to get date tag for filtering
+  const getDateTag = (event: RealEvent): string => {
+    const eventDate = new Date(event.startDate);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const weekendStart = new Date(today);
+    weekendStart.setDate(today.getDate() + (6 - today.getDay()));
+    const weekendEnd = new Date(weekendStart);
+    weekendEnd.setDate(weekendStart.getDate() + 1);
+    const monthEnd = new Date(today);
+    monthEnd.setMonth(monthEnd.getMonth() + 1);
+
+    if (eventDate.toDateString() === today.toDateString()) return 'today';
+    if (eventDate.toDateString() === tomorrow.toDateString()) return 'tomorrow';
+    if (eventDate >= weekendStart && eventDate <= weekendEnd) return 'this-weekend';
+    if (eventDate <= monthEnd) return 'month';
+    return 'future';
+  };
+
+  // Client-side filtering with real events
+  const filteredEvents = useMemo<RealEvent[]>(() => {
+    if (!rawEvents.length) return [];
+
+    let results = [...rawEvents];
+
+    // Search filter
     if (query) {
       const q = query.toLowerCase();
       results = results.filter(
-        (e) => e.title.toLowerCase().includes(q) || e.artist.toLowerCase().includes(q) || e.venue.toLowerCase().includes(q)
+        (e: RealEvent) => e.title.toLowerCase().includes(q) || 
+               e.location.toLowerCase().includes(q) ||
+               (e.city && e.city.toLowerCase().includes(q))
       );
     }
 
+    // Location filter
     if (location) {
       const loc = location.toLowerCase();
-      results = results.filter((e) => e.city.toLowerCase().includes(loc) || e.venue.toLowerCase().includes(loc));
+      results = results.filter(
+        (e: RealEvent) => (e.city && e.city.toLowerCase().includes(loc)) || 
+               e.location.toLowerCase().includes(loc)
+      );
     }
 
+    // Category filter
     if (category !== 'all') {
-      results = results.filter((e) => e.category === category);
+      results = results.filter((e: RealEvent) => e.category === category);
     }
 
-    results = results.filter((e) => e.price >= priceRange[0] && e.price <= priceRange[1]);
+    // Price range filter
+    results = results.filter((e: RealEvent) => {
+      const minPrice = getEventMinPrice(e);
+      return minPrice >= priceRange[0] && minPrice <= priceRange[1];
+    });
 
-    if (dateFilter === 'today') {
-      results = results.filter((e) => e.dateTag === 'today');
-    } else if (dateFilter === 'weekend') {
-      results = results.filter((e) => ['today', 'tomorrow', 'this-weekend'].includes(e.dateTag));
-    } else if (dateFilter === 'month') {
-      results = results.filter((e) => e.dateTag !== 'future');
-    }
-
-    switch (sort) {
-      case 'trending': results.sort((a, b) => b.demand - a.demand); break;
-      case 'date': results.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()); break;
-      case 'price-low': results.sort((a, b) => a.price - b.price); break;
-      case 'price-high': results.sort((a, b) => b.price - a.price); break;
-      case 'popular': results.sort((a, b) => b.soldCount - a.soldCount); break;
+    // Date filter
+    if (dateFilter !== 'any') {
+      results = results.filter((e: RealEvent) => {
+        const tag = getDateTag(e);
+        if (dateFilter === 'today') return tag === 'today';
+        if (dateFilter === 'weekend') return ['today', 'tomorrow', 'this-weekend'].includes(tag);
+        if (dateFilter === 'month') return tag !== 'future';
+        return true;
+      });
     }
 
     return results;
-  }, [query, location, category, sort, priceRange, dateFilter]);
+  }, [rawEvents, query, location, category, priceRange, dateFilter]);
+
+  // Apply sorting separately (client-side after filtering)
+  const sortedEvents = useMemo<RealEvent[]>(() => {
+    const results = [...filteredEvents];
+    
+    switch (sort) {
+      case 'trending':
+        results.sort((a, b) => getDemandPercent(b) - getDemandPercent(a));
+        break;
+      case 'date':
+        results.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+        break;
+      case 'price-low':
+        results.sort((a, b) => getEventMinPrice(a) - getEventMinPrice(b));
+        break;
+      case 'price-high':
+        results.sort((a, b) => getEventMinPrice(b) - getEventMinPrice(a));
+        break;
+      case 'popular':
+        results.sort((a, b) => b.ticketsSold - a.ticketsSold);
+        break;
+      default:
+        results.sort((a, b) => getDemandPercent(b) - getDemandPercent(a));
+        break;
+    }
+    
+    return results;
+  }, [filteredEvents, sort]);
+
+  // Calculate price range limits from actual events
+  const priceLimits = useMemo(() => {
+    if (!rawEvents.length) return { min: 0, max: 100000 };
+    const prices = rawEvents.flatMap((e: RealEvent) => e.ticketTiers?.map((t: { price: number }) => t.price) || []);
+    return {
+      min: Math.min(...prices, 0),
+      max: Math.max(...prices, 100000)
+    };
+  }, [rawEvents]);
+
+  // Update price range when events load
+  useEffect(() => {
+    if (rawEvents.length) {
+      setPriceRange([priceLimits.min, priceLimits.max]);
+    }
+  }, [rawEvents.length, priceLimits]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-2 border-zinc-200 border-t-zinc-950 rounded-full animate-spin" />
+          <p className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-[0.3em] animate-pulse">
+            Loading events...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-6 text-center">
+          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center">
+            <span className="text-2xl">⚠️</span>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-zinc-950 uppercase tracking-tight">
+              Failed to load events
+            </p>
+            <p className="text-[10px] font-mono text-zinc-400 mt-1 uppercase tracking-widest">
+              Please try again later
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-zinc-50">
       {/* Page Header with Search */}
-      <EventsHeader query={query} location={location} totalResults={filteredEvents.length} />
+      <EventsHeader query={query} location={location} totalResults={sortedEvents.length} />
 
       {/* Search Bar */}
       <EventsSearchBar
@@ -112,6 +261,7 @@ export default function EventsClient({ initialQuery, initialLocation, initialCat
               category={category}
               sort={sort}
               priceRange={priceRange}
+              priceRangeLimits={[priceLimits.min, priceLimits.max]}
               dateFilter={dateFilter}
               onCategoryChange={handleCategoryChange}
               onSortChange={handleSortChange}
@@ -122,7 +272,12 @@ export default function EventsClient({ initialQuery, initialLocation, initialCat
 
           {/* Events Grid */}
           <div className="flex-1 min-w-0">
-            <EventsGrid events={filteredEvents} sort={sort} onSortChange={handleSortChange} />
+            <EventsGrid 
+              events={sortedEvents} 
+              sort={sort} 
+              onSortChange={handleSortChange}
+              isLoading={isLoading}
+            />
           </div>
         </div>
       </div>

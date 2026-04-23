@@ -16,7 +16,7 @@ export async function fetchAllEventsWithTickets() {
     }
 
     try {
-        // 2. Database Query with Include
+        // 2. Database Query with Include - Now includes ticketTiers
         const events = await prisma.event.findMany({
             include: {
                 tickets: {
@@ -25,6 +25,20 @@ export async function fetchAllEventsWithTickets() {
                         status: true,
                         userId: true,
                         createdAt: true,
+                        pricePaid: true,
+                        tierId: true,
+                    }
+                },
+                ticketTiers: {
+                    orderBy: { price: 'asc' }, // Sort by price ascending
+                    select: {
+                        id: true,
+                        name: true,
+                        description: true,
+                        price: true,
+                        capacity: true,
+                        sold: true,
+                        sortOrder: true,
                     }
                 }
             },
@@ -33,17 +47,38 @@ export async function fetchAllEventsWithTickets() {
             }
         });
 
-        // 3. Data Transformation (Optional)
-        // We can map the data to make it easier for the frontend to consume
+        // 3. Data Transformation - Updated for new schema
         const formattedEvents = events.map(event => ({
             id: event.id,
             name: event.title,
+            subtitle: event.subtitle,
             description: event.description,
+            imageUrl: event.imageUrl,
+            category: event.category,
+            tags: event.tags,
             location: event.location,
-            price: event.price,
+            address: event.address,
+            city: event.city,
+            transport: event.transport,
+            parking: event.parking,
+            venueNotes: event.venueNotes,
+            startDate: event.startDate,
+            endDate: event.endDate,
+            doorsOpen: event.doorsOpen,
+            gstPercent: event.gstPercent,
+            serviceFeePercent: event.serviceFeePercent,
+            instructions: event.instructions,
             totalCapacity: event.totalTickets,
-            date: event.startDate,
-            ticketsSold: event.tickets.length,
+            ticketsSold: event.ticketsSold,
+            status: event.status,
+            createdAt: event.createdAt,
+            updatedAt: event.updatedAt,
+            // NEW: Include ticket tiers instead of single price
+            ticketTiers: event.ticketTiers,
+            // For backward compatibility - calculate min price from tiers
+            price: event.ticketTiers.length > 0 
+                ? Math.min(...event.ticketTiers.map(t => t.price))
+                : 0,
             tickets: event.tickets, // All individual ticket details
         }));
 

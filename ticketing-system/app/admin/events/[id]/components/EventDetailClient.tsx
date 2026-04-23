@@ -106,11 +106,21 @@ export default function EventDetailClient({ eventId }: Props) {
 
     // ─── Derived Data ────────────────────────────────────────────────────────────
     const status = getEventStatus(event);
-    const soldPct = Math.round((event.ticketsSold / event.totalTickets) * 100);
-    const revenue = event.ticketsSold * event.price;
+    
+    // Calculate min and max prices from ticket tiers
+    const minPrice = event.ticketTiers?.length > 0 
+        ? Math.min(...event.ticketTiers.map(t => t.price))
+        : 0;
+    const maxPrice = event.ticketTiers?.length > 0 
+        ? Math.max(...event.ticketTiers.map(t => t.price))
+        : 0;
+    
+    // Calculate revenue based on actual ticket sales with their tier prices
+    const revenue = event.tickets.reduce((sum, ticket) => sum + (ticket.pricePaid || 0), 0);
+    const soldPct = event.totalTickets > 0 ? Math.round((event.ticketsSold / event.totalTickets) * 100) : 0;
     const remaining = event.totalTickets - event.ticketsSold;
 
-    // Ticket breakdown
+    // Ticket breakdown by status
     const statusCounts = event.tickets.reduce((acc, t) => {
         acc[t.status] = (acc[t.status] || 0) + 1;
         return acc;
@@ -128,6 +138,11 @@ export default function EventDetailClient({ eventId }: Props) {
     const totalTicketPages = Math.ceil(filteredTickets.length / TICKETS_PER_PAGE);
     const ticketStart = (ticketPage - 1) * TICKETS_PER_PAGE;
     const paginatedTickets = filteredTickets.slice(ticketStart, ticketStart + TICKETS_PER_PAGE);
+
+    // Price display string
+    const priceDisplay = minPrice === maxPrice 
+        ? `₨ ${minPrice.toLocaleString()}`
+        : `₨ ${minPrice.toLocaleString()} - ₨ ${maxPrice.toLocaleString()}`;
 
     // ─── Delete Handler ──────────────────────────────────────────────────────────
     async function handleDelete() {
@@ -238,8 +253,15 @@ export default function EventDetailClient({ eventId }: Props) {
                             {
                                 label: "Revenue",
                                 value: `₨ ${revenue.toLocaleString()}`,
-                                sub: `${event.ticketsSold} × ₨${event.price.toLocaleString()}`,
+                                sub: `${event.ticketsSold} tickets sold`,
                                 icon: DollarSign,
+                                accent: "bg-emerald-500",
+                            },
+                            {
+                                label: "Price Range",
+                                value: priceDisplay,
+                                sub: `${event.ticketTiers?.length || 0} ticket tiers`,
+                                icon: Ticket,
                                 accent: "bg-emerald-500",
                             },
                             {
@@ -301,8 +323,20 @@ export default function EventDetailClient({ eventId }: Props) {
                                 style={{ width: `${soldPct}%` }}
                             />
                         </div>
+                        {/* Ticket tiers breakdown */}
+                        {event.ticketTiers && event.ticketTiers.length > 0 && (
+                            <div className="mt-6 flex flex-wrap gap-3">
+                                {event.ticketTiers.map((tier) => (
+                                    <div key={tier.id} className="flex items-center gap-2 px-3 py-1.5 border border-zinc-200 bg-zinc-50 text-[9px] font-mono font-bold uppercase tracking-widest">
+                                        <span>{tier.name}</span>
+                                        <span className="text-emerald-600">₨ {tier.price.toLocaleString()}</span>
+                                        <span className="opacity-60">({tier.sold}/{tier.capacity})</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                         {/* Status breakdown chips */}
-                        <div className="mt-6 flex flex-wrap gap-3">
+                        <div className="mt-4 flex flex-wrap gap-3">
                             {Object.entries(statusCounts).map(([status, count]) => {
                                 const cfg = ticketStatusConfig[status] ?? { label: status, color: "text-zinc-400 bg-zinc-50 border-zinc-100" };
                                 return (
@@ -367,7 +401,7 @@ export default function EventDetailClient({ eventId }: Props) {
                                 <table className="w-full">
                                     <thead>
                                         <tr className="border-b border-zinc-100 bg-zinc-50">
-                                            {["Ticket ID", "Buyer", "Email", "Purchased", "Expires", "Status"].map((h) => (
+                                            {["Ticket ID", "Tier", "Buyer", "Email", "Purchased", "Expires", "Status"].map((h) => (
                                                 <th key={h} className="text-left px-6 py-3 text-[8px] font-mono font-bold text-zinc-400 uppercase tracking-[0.2em] whitespace-nowrap">
                                                     {h}
                                                 </th>
@@ -391,6 +425,9 @@ export default function EventDetailClient({ eventId }: Props) {
                                                         >
                                                             {ticket.id.slice(0, 8)}...
                                                         </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-[9px] font-mono font-bold text-emerald-600">
+                                                        {ticket.tier?.name || "N/A"}
                                                     </td>
                                                     <td className="px-6 py-4 text-[10px] font-bold text-zinc-950 uppercase tracking-tight whitespace-nowrap">
                                                         {ticket.user.username}

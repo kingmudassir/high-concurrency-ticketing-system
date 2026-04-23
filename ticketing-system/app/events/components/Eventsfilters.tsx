@@ -4,11 +4,16 @@ import { SlidersHorizontal } from 'lucide-react';
 
 const CATEGORIES = [
   { id: 'all', label: 'All Events' },
-  { id: 'concerts', label: 'Concerts' },
+  { id: 'concert', label: 'Concerts' },
+  { id: 'festival', label: 'Festivals' },
   { id: 'sports', label: 'Sports' },
-  { id: 'theater', label: 'Theater' },
-  { id: 'festivals', label: 'Festivals' },
-  { id: 'comedy', label: 'Comedy' },
+  { id: 'theatre', label: 'Theater' },
+  { id: 'exhibition', label: 'Exhibitions' },
+  { id: 'gaming', label: 'Gaming' },
+  { id: 'networking', label: 'Networking' },
+  { id: 'food', label: 'Food & Drink' },
+  { id: 'wellness', label: 'Wellness' },
+  { id: 'film', label: 'Film' },
 ];
 
 const SORT_OPTIONS = [
@@ -30,6 +35,7 @@ interface Props {
   category: string;
   sort: string;
   priceRange: [number, number];
+  priceRangeLimits: [number, number];
   dateFilter: string;
   onCategoryChange: (cat: string) => void;
   onSortChange: (sort: string) => void;
@@ -38,9 +44,28 @@ interface Props {
 }
 
 export default function EventsFilters({
-  category, sort, priceRange, dateFilter,
+  category, sort, priceRange, priceRangeLimits, dateFilter,
   onCategoryChange, onSortChange, onPriceRangeChange, onDateFilterChange,
 }: Props) {
+  // Format price for display (PKR)
+  const formatPrice = (price: number) => {
+    return `₨ ${price.toLocaleString()}`;
+  };
+
+  // Handle min price change (if you want two-way range)
+  const handleMinPriceChange = (value: number) => {
+    if (value <= priceRange[1]) {
+      onPriceRangeChange([value, priceRange[1]]);
+    }
+  };
+
+  // Handle max price change
+  const handleMaxPriceChange = (value: number) => {
+    if (value >= priceRange[0]) {
+      onPriceRangeChange([priceRange[0], value]);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -51,7 +76,7 @@ export default function EventsFilters({
 
       {/* Category */}
       <FilterSection title="Category">
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 max-h-80 overflow-y-auto">
           {CATEGORIES.map((cat) => (
             <button
               key={cat.id}
@@ -90,26 +115,75 @@ export default function EventsFilters({
         </div>
       </FilterSection>
 
-      {/* Price Range */}
-      <FilterSection title="Max Price">
-        <div className="px-1">
-          <div className="flex justify-between items-center mb-3">
-            <span className="text-xs font-bold text-zinc-500">${priceRange[0]}</span>
-            <span className="text-xs font-black text-zinc-900">${priceRange[1]}</span>
+      {/* Price Range - Two-way slider */}
+      <FilterSection title="Price Range (PKR)">
+        <div className="px-3 py-4">
+          {/* Min Price */}
+          <div className="mb-4">
+            <label className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest block mb-2">
+              Minimum Price
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-zinc-600">₨</span>
+              <input
+                type="number"
+                min={priceRangeLimits[0]}
+                max={priceRangeLimits[1]}
+                value={priceRange[0]}
+                onChange={(e) => handleMinPriceChange(Number(e.target.value))}
+                className="w-full px-3 py-2 text-sm font-semibold text-zinc-900 border border-zinc-200 focus:border-zinc-950 outline-none transition-colors"
+              />
+            </div>
           </div>
-          <input
-            type="range"
-            min={0}
-            max={1000}
-            step={25}
-            value={priceRange[1]}
-            onChange={(e) => onPriceRangeChange([priceRange[0], Number(e.target.value)])}
-            className="w-full accent-emerald-500 cursor-pointer"
-          />
-          <div className="flex justify-between mt-1">
-            <span className="text-[9px] font-mono text-zinc-300">$0</span>
-            <span className="text-[9px] font-mono text-zinc-300">$1000</span>
+
+          {/* Max Price */}
+          <div className="mb-4">
+            <label className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest block mb-2">
+              Maximum Price
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-zinc-600">₨</span>
+              <input
+                type="number"
+                min={priceRangeLimits[0]}
+                max={priceRangeLimits[1]}
+                value={priceRange[1]}
+                onChange={(e) => handleMaxPriceChange(Number(e.target.value))}
+                className="w-full px-3 py-2 text-sm font-semibold text-zinc-900 border border-zinc-200 focus:border-zinc-950 outline-none transition-colors"
+              />
+            </div>
           </div>
+
+          {/* Range Slider */}
+          <div className="mt-2">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-[9px] font-mono text-zinc-400">{formatPrice(priceRange[0])}</span>
+              <span className="text-[9px] font-mono text-zinc-400">{formatPrice(priceRange[1])}</span>
+            </div>
+            <input
+              type="range"
+              min={priceRangeLimits[0]}
+              max={priceRangeLimits[1]}
+              step={500}
+              value={priceRange[1]}
+              onChange={(e) => handleMaxPriceChange(Number(e.target.value))}
+              className="w-full accent-emerald-500 cursor-pointer"
+            />
+            <div className="flex justify-between mt-1">
+              <span className="text-[8px] font-mono text-zinc-300">{formatPrice(priceRangeLimits[0])}</span>
+              <span className="text-[8px] font-mono text-zinc-300">{formatPrice(priceRangeLimits[1])}</span>
+            </div>
+          </div>
+
+          {/* Reset price button */}
+          {(priceRange[0] > priceRangeLimits[0] || priceRange[1] < priceRangeLimits[1]) && (
+            <button
+              onClick={() => onPriceRangeChange([priceRangeLimits[0], priceRangeLimits[1]])}
+              className="mt-3 w-full px-3 py-2 text-[9px] font-mono font-bold text-zinc-500 border border-zinc-200 hover:border-zinc-400 hover:text-zinc-900 transition-colors uppercase tracking-widest"
+            >
+              Reset Range
+            </button>
+          )}
         </div>
       </FilterSection>
 

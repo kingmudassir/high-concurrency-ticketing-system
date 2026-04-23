@@ -121,12 +121,12 @@ export default function Hero() {
                 Get your
                 <br />
                 <span className="relative inline-block">
-                    <span className="text-emerald-500 italic">seat.</span>
+                    <span className="text-emerald-500 italic">seat!</span>
                     <motion.span
                     initial={{ scaleX: 0 }}
                     animate={{ scaleX: 1 }}
                     transition={{ delay: 0.9, duration: 0.4 }}
-                    className="absolute bottom-1 left-0 right-0 h-1.25 md:h-1.75 bg-emerald-500 origin-left"
+                    className="absolute -bottom-2 left-0 right-0 h-1.25 md:h-1.75 bg-emerald-500 origin-left"
                     />
                 </span>
                 </motion.h1>

@@ -38,15 +38,34 @@ const SECTIONS = [
 export default function CreateEventPage() {
     const router      = useRouter();
     const queryClient = useQueryClient();
+
+    // Venue state
+    const [location, setLocation] = useState("");
+    const [address, setAddress] = useState("");
+    const [city, setCity] = useState("");
+    const [transport, setTransport] = useState("");
+    const [parking, setParking] = useState("");
+    const [venueNotes, setVenueNotes] = useState("");
+
+    // Timing state
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
+    const [doorsOpen, setDoorsOpen] = useState("");
+
     const [isSubmitting, setIsSubmitting] = useState(false);
+
     const [expandedSection, setExpandedSection] = useState<string>("cover");
     const [completedSections, setCompletedSections] = useState<Set<string>>(new Set());
+
     const [isProgressBarVisible, setIsProgressBarVisible] = useState(true);
 
     // Section states
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [imageName, setImageName]       = useState<string | null>(null);
+    const [imageUrl, setImageUrl] = useState<string | null>(null); // Add this
+
     const [category, setCategory]         = useState("");
+
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [customTag, setCustomTag]       = useState("");
 
@@ -55,9 +74,15 @@ export default function CreateEventPage() {
     ]);
     const [gstPercent, setGstPercent]               = useState("");
     const [serviceFeePercent, setServiceFeePercent] = useState("");
+
     const [lineup, setLineup]                       = useState<LineupAct[]>([]);
+
     const [instructions, setInstructions]           = useState<string[]>([]);
     const [customInstruction, setCustomInstruction] = useState("");
+
+    const [eventTitle, setEventTitle] = useState("");
+    const [eventSubtitle, setEventSubtitle] = useState("");
+    const [eventDescription, setEventDescription] = useState("");
 
     // Track completed sections
     useEffect(() => {
@@ -65,16 +90,33 @@ export default function CreateEventPage() {
         
         if (imagePreview) completed.add("cover");
         if (category && selectedTags.length > 0) completed.add("category");
+        if (eventTitle && eventTitle.trim() !== "") completed.add("identity");
+        if (startDate) completed.add("timing"); // Add this
+        if (location) completed.add("venue"); // Add this
         if (tiers.some(t => t.name && t.price && t.capacity)) completed.add("tickets");
         if (gstPercent || serviceFeePercent) completed.add("fees");
         if (instructions.length > 0) completed.add("instructions");
+        if (lineup.length > 0 && lineup.some(act => act.name && act.name.trim() !== "")) completed.add("lineup");
         
         setCompletedSections(completed);
-    }, [imagePreview, category, selectedTags, tiers, gstPercent, serviceFeePercent, instructions]);
+    }, [imagePreview, category, selectedTags, eventTitle, startDate, location, tiers, gstPercent, serviceFeePercent, instructions, lineup]);
 
     const totalSections = SECTIONS.length;
     const completedCount = completedSections.size;
     const progressPercentage = (completedCount / totalSections) * 100;
+
+    // Update the handler
+    const handleImageChange = (preview: string, name: string, cloudinaryUrl: string) => {
+        setImagePreview(preview);
+        setImageName(name);
+        setImageUrl(cloudinaryUrl);
+    };
+
+    const handleImageRemove = () => {
+        setImagePreview(null);
+        setImageName(null);
+        setImageUrl(null);
+    };
 
     // Handlers
     function handleCategoryChange(cat: string) {
@@ -106,8 +148,21 @@ export default function CreateEventPage() {
         e.preventDefault();
         setIsSubmitting(true);
 
+        // Validation
         if (!category) {
             toast.error("SELECT A CATEGORY BEFORE SUBMITTING");
+            setIsSubmitting(false);
+            return;
+        }
+
+        if (!startDate) {
+            toast.error("SELECT A START DATE AND TIME");
+            setIsSubmitting(false);
+            return;
+        }
+
+        if (!location) {
+            toast.error("ENTER A VENUE LOCATION");
             setIsSubmitting(false);
             return;
         }
@@ -118,13 +173,33 @@ export default function CreateEventPage() {
             return;
         }
 
+        // Convert tiers to proper types
+        const convertedTiers = tiers.map(tier => ({
+            ...tier,
+            price: parseInt(tier.price) || 0,
+            capacity: parseInt(tier.capacity) || 0
+        }));
+
         const fd = new FormData(e.currentTarget);
-        fd.set("category",          category);
-        fd.set("tags",              JSON.stringify(selectedTags));
-        fd.set("tiers",             JSON.stringify(tiers));
-        fd.set("instructions",      JSON.stringify(instructions));
-        fd.set("lineup",            JSON.stringify(lineup));
-        fd.set("gstPercent",        gstPercent || "0");
+        fd.set("coverImage", imageUrl || "");
+        fd.set("category", category);
+        fd.set("tags", JSON.stringify(selectedTags));
+        fd.set("title", eventTitle);
+        fd.set("subtitle", eventSubtitle || "");
+        fd.set("description", eventDescription || "");
+        fd.set("location", location);
+        fd.set("address", address || "");
+        fd.set("city", city || "");
+        fd.set("transport", transport || "");
+        fd.set("parking", parking || "");
+        fd.set("venueNotes", venueNotes || "");
+        fd.set("startDate", startDate);
+        fd.set("endDate", endDate || "");
+        fd.set("doorsOpen", doorsOpen || "");
+        fd.set("tiers", JSON.stringify(convertedTiers));
+        fd.set("instructions", JSON.stringify(instructions));
+        fd.set("lineup", JSON.stringify(lineup));
+        fd.set("gstPercent", gstPercent || "0");
         fd.set("serviceFeePercent", serviceFeePercent || "0");
 
         try {
@@ -181,6 +256,8 @@ export default function CreateEventPage() {
                         </div>
                     </div>
 
+                    
+
                     <div className="flex items-center gap-3">
                         <motion.button
                             whileHover={{ scale: 1.02 }}
@@ -219,38 +296,6 @@ export default function CreateEventPage() {
                 </div>
             </div>
 
-            {/* Toggle Progress Bar Button - Floating Action Button */}
-            <motion.button
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.5, type: "spring", stiffness: 200 }}
-                onClick={() => setIsProgressBarVisible(!isProgressBarVisible)}
-                className="fixed left-6 bottom-24 z-50 group"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-            >
-                <div className="relative">
-                    {/* Glow effect */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full blur-lg opacity-60 group-hover:opacity-100 transition-opacity" />
-                    
-                    {/* Button */}
-                    <div className="relative bg-white rounded-full shadow-xl border border-gray-200 p-3 group-hover:shadow-2xl transition-all">
-                        {isProgressBarVisible ? (
-                            <EyeOff className="w-5 h-5 text-gray-600 group-hover:text-emerald-600 transition-colors" />
-                        ) : (
-                            <Eye className="w-5 h-5 text-gray-600 group-hover:text-emerald-600 transition-colors" />
-                        )}
-                    </div>
-                    
-                    {/* Tooltip */}
-                    <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                        <div className="bg-gray-900 text-white text-[10px] font-mono font-bold px-2 py-1 rounded whitespace-nowrap">
-                            {isProgressBarVisible ? "Hide Progress" : "Show Progress"}
-                        </div>
-                    </div>
-                </div>
-            </motion.button>
-
             {/* Progress Bar with Toggle Animation */}
             <AnimatePresence mode="wait">
                 {isProgressBarVisible && (
@@ -276,6 +321,7 @@ export default function CreateEventPage() {
                 )}
             </AnimatePresence>
 
+
             {/* Form with Accordion Sections */}
             <form id="create-event-form" onSubmit={handleSubmit} className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-4 mt-10">
                 {SECTIONS.map((section) => {
@@ -298,16 +344,16 @@ export default function CreateEventPage() {
                                         : "shadow-md hover:shadow-lg"
                                 }`}
                                 style={{
-                                    background: "rgba(255, 255, 255, 0.9)",
+                                    background: "rgba(255, 255, 255, 0.95)",
                                     backdropFilter: "blur(20px)",
-                                    border: isExpanded ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(0, 0, 0, 0.05)'
+                                    border: isExpanded ? '1px solid #10b981' : '1px solid rgba(0, 0, 0, 0.08)'
                                 }}
                             >
                                 <div className="flex items-center justify-between px-6 py-5">
                                     <div className="flex items-center gap-4">
                                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
                                             isCompleted
-                                                ? "bg-linear-to-r from-emerald-500 to-teal-500 shadow-md"
+                                                ? "bg-emerald-500 shadow-sm"
                                                 : "bg-stone-100"
                                         }`}>
                                             <span className="text-lg">{section.icon}</span>
@@ -347,7 +393,7 @@ export default function CreateEventPage() {
                                 </div>
 
                                 {isExpanded && (
-                                    <div className="absolute inset-0 rounded-2xl p-px bg-linear-to-r from-emerald-500 via-teal-500 to-cyan-500 opacity-50 pointer-events-none" />
+                                    <div className="absolute inset-0 rounded-2xl border-2 border-emerald-400/30 pointer-events-none" />
                                 )}
                             </motion.button>
 
@@ -365,10 +411,12 @@ export default function CreateEventPage() {
                                                 <EventImageSection
                                                     imagePreview={imagePreview}
                                                     imageName={imageName}
-                                                    onImageChange={(preview, name) => { setImagePreview(preview); setImageName(name); }}
-                                                    onImageRemove={() => { setImagePreview(null); setImageName(null); }}
+                                                    imageUrl={imageUrl}
+                                                    onImageChange={handleImageChange}
+                                                    onImageRemove={handleImageRemove}
                                                 />
                                             )}
+
                                             {section.id === "category" && (
                                                 <CategoryTagsSection
                                                     category={category}
@@ -380,9 +428,46 @@ export default function CreateEventPage() {
                                                     onCustomTagAdd={handleCustomTagAdd}
                                                 />
                                             )}
-                                            {section.id === "identity" && <EventIdentitySection />}
-                                            {section.id === "timing" && <TimingSection />}
-                                            {section.id === "venue" && <VenueSection />}
+
+                                            {section.id === "identity" && (
+                                                <EventIdentitySection 
+                                                    title={eventTitle}
+                                                    subtitle={eventSubtitle}
+                                                    description={eventDescription}
+                                                    onTitleChange={setEventTitle}
+                                                    onSubtitleChange={setEventSubtitle}
+                                                    onDescriptionChange={setEventDescription}
+                                                />
+                                            )}
+
+                                            {section.id === "timing" && (
+                                                <TimingSection
+                                                    startDate={startDate}
+                                                    endDate={endDate}
+                                                    doorsOpen={doorsOpen}
+                                                    onStartDateChange={setStartDate}
+                                                    onEndDateChange={setEndDate}
+                                                    onDoorsOpenChange={setDoorsOpen}
+                                                />
+                                            )}
+
+                                            {section.id === "venue" && (
+                                                <VenueSection
+                                                    location={location}
+                                                    address={address}
+                                                    city={city}
+                                                    transport={transport}
+                                                    parking={parking}
+                                                    venueNotes={venueNotes}
+                                                    onLocationChange={setLocation}
+                                                    onAddressChange={setAddress}
+                                                    onCityChange={setCity}
+                                                    onTransportChange={setTransport}
+                                                    onParkingChange={setParking}
+                                                    onVenueNotesChange={setVenueNotes}
+                                                />
+                                            )}
+
                                             {section.id === "tickets" && (
                                                 <TicketTiersSection tiers={tiers} onChange={setTiers} />
                                             )}
@@ -417,8 +502,19 @@ export default function CreateEventPage() {
 
                 {/* Bottom Submit Bar */}
                 <div className="sticky bottom-4 z-20 mt-8">
-                    <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-stone-200/50 shadow-xl p-4 flex items-center justify-between">
+                    <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-stone-200 shadow-xl p-4 flex items-center justify-between">
                         <div className="flex items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setIsProgressBarVisible(!isProgressBarVisible)}
+                                className="w-9 h-9 flex items-center justify-center rounded-lg border border-stone-200 bg-white hover:bg-stone-50 transition"
+                            >
+                                {isProgressBarVisible ? (
+                                <EyeOff className="w-4 h-4 text-stone-600" />
+                                ) : (
+                                <Eye className="w-4 h-4 text-stone-600" />
+                                )}
+                            </button>
                             <div className={`w-2 h-2 rounded-full ${progressPercentage === 100 ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`} />
                             <span className="text-[9px] font-mono text-stone-500 uppercase tracking-wider">
                                 {progressPercentage === 100 ? "Ready to publish" : `${Math.round(progressPercentage)}% complete`}
@@ -440,7 +536,7 @@ export default function CreateEventPage() {
                                 className={`flex items-center gap-2 px-8 py-2.5 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all ${
                                     isSubmitting
                                         ? "bg-stone-200 text-stone-400 cursor-not-allowed"
-                                        : "bg-linear-to-r from-emerald-600 to-teal-600 text-white shadow-md hover:shadow-lg"
+                                        : "bg-emerald-600 text-white shadow-md hover:bg-emerald-700"
                                 }`}
                             >
                                 {isSubmitting ? (
@@ -459,6 +555,7 @@ export default function CreateEventPage() {
                     </div>
                 </div>
             </form>
+
         </div>
     );
 }

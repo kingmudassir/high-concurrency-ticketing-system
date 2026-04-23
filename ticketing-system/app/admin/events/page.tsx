@@ -36,10 +36,13 @@ export default function EventsPage() {
     const now = new Date();
 
     const processedEvents = (rawEvents ?? []).map((e) => {
-        const eventDate = new Date(e.date);
+        // Safely parse the date - use startDate instead of date
+        const eventDate = e.startDate ? new Date(e.startDate) : null;
         let calculatedStatus = "active";
 
-        if (eventDate < now) {
+        if (!eventDate) {
+            calculatedStatus = "upcoming";
+        } else if (eventDate < now) {
             calculatedStatus = "ended";
         } else if (e.ticketsSold >= e.totalCapacity) {
             calculatedStatus = "sold_out";
@@ -47,11 +50,11 @@ export default function EventsPage() {
             calculatedStatus = "upcoming";
         }
 
-        return { ...e, calculatedStatus };
+        return { ...e, calculatedStatus, eventDate };
     });
 
     const filtered = processedEvents.filter((e) => {
-        const matchSearch = e.name.toLowerCase().includes(search.toLowerCase());
+        const matchSearch = e.name?.toLowerCase().includes(search.toLowerCase()) || false;
         const matchFilter = filter === "all" || e.calculatedStatus === filter;
         return matchSearch && matchFilter;
     });
@@ -59,6 +62,34 @@ export default function EventsPage() {
     const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const paginatedEvents = filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+    // Helper function to safely format date
+    const formatEventDate = (date: Date | string | null | undefined) => {
+        if (!date) return "TBD";
+        try {
+            const dateObj = typeof date === 'string' ? new Date(date) : date;
+            if (isNaN(dateObj.getTime())) return "Invalid date";
+            return format(dateObj, "dd MMM yyyy");
+        } catch {
+            return "Invalid date";
+        }
+    };
+
+    // Helper to get price display from ticket tiers
+    const getPriceDisplay = (event: any) => {
+        if (event.ticketTiers && event.ticketTiers.length > 0) {
+            const prices = event.ticketTiers.map((t: any) => t.price);
+            const minPrice = Math.min(...prices);
+            const maxPrice = Math.max(...prices);
+            if (minPrice === maxPrice) {
+                return `₨ ${minPrice.toLocaleString()}`;
+            }
+            return `₨ ${minPrice.toLocaleString()} - ₨ ${maxPrice.toLocaleString()}`;
+        }
+        // Fallback to old price field if it exists
+        if (event.price) return `₨ ${event.price.toLocaleString()}`;
+        return "₨ 0";
+    };
 
     return (
         <div className="p-6 sm:p-10 space-y-8">
@@ -104,7 +135,7 @@ export default function EventsPage() {
                                             : "bg-white text-zinc-400 border-zinc-200 hover:border-zinc-400"
                                     }`}
                                 >
-                                    {f}
+                                    {f === "sold_out" ? "Sold Out" : f.charAt(0).toUpperCase() + f.slice(1)}
                                 </button>
                             ))}
                         </div>
@@ -127,8 +158,9 @@ export default function EventsPage() {
                         </thead>
                         <tbody>
                             {paginatedEvents.map((e) => {
-                                const pct = Math.round((e.ticketsSold / e.totalCapacity) * 100);
+                                const pct = e.totalCapacity > 0 ? Math.round((e.ticketsSold / e.totalCapacity) * 100) : 0;
                                 const cfg = statusConfig[e.calculatedStatus];
+                                const priceDisplay = getPriceDisplay(e);
 
                                 return (
                                     <tr
@@ -145,27 +177,27 @@ export default function EventsPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-xs font-bold text-zinc-950 uppercase tracking-tight max-w-50">
-                                            <p className="truncate">{e.name}</p>
+                                            <p className="truncate">{e.name || e.title || "Untitled"}</p>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-1.5 text-[9px] font-mono text-zinc-400">
                                                 <MapPin className="w-3 h-3 shrink-0" />
-                                                <span className="truncate max-w-35">{e.location}</span>
+                                                <span className="truncate max-w-35">{e.location || "TBD"}</span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-1.5 text-[9px] font-mono text-zinc-400">
                                                 <CalendarDays className="w-3 h-3 shrink-0" />
-                                                {format(new Date(e.date), "dd MMM yyyy")}
+                                                {formatEventDate(e.startDate || e.date)}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex flex-col gap-1.5">
                                                 <div className="flex items-center gap-2 text-[9px] font-mono">
                                                     <Ticket className="w-3 h-3 text-zinc-300" />
-                                                    <span className="text-zinc-950 font-bold">{e.ticketsSold.toLocaleString()}</span>
+                                                    <span className="text-zinc-950 font-bold">{e.ticketsSold?.toLocaleString() || 0}</span>
                                                     <span className="text-zinc-300">/</span>
-                                                    <span className="text-zinc-400">{e.totalCapacity.toLocaleString()}</span>
+                                                    <span className="text-zinc-400">{e.totalCapacity?.toLocaleString() || 0}</span>
                                                 </div>
                                                 <div className="w-24 h-0.5 bg-zinc-100">
                                                     <div
@@ -175,9 +207,8 @@ export default function EventsPage() {
                                                 </div>
                                             </div>
                                         </td>
-                                        {/* FIX: price is a number from DB — format it properly */}
                                         <td className="px-6 py-4 text-[10px] font-mono font-bold text-zinc-950 tabular-nums whitespace-nowrap">
-                                            ₨ {e.price.toLocaleString()}
+                                            {priceDisplay}
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={`inline-flex items-center px-2 py-0.5 text-[8px] font-mono font-bold uppercase tracking-widest border ${cfg.color}`}>
@@ -200,40 +231,42 @@ export default function EventsPage() {
                 </div>
 
                 {/* Pagination */}
-                <div className="px-6 py-4 border-t border-zinc-100 flex items-center justify-between text-[9px] font-mono">
-                    <span className="text-zinc-400 uppercase tracking-widest">
-                        Showing {startIndex + 1}–{Math.min(startIndex + ITEMS_PER_PAGE, filtered.length)} of {filtered.length} events
-                    </span>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                            disabled={currentPage === 1}
-                            className="w-7 h-7 flex items-center justify-center border border-zinc-200 disabled:opacity-40 hover:bg-zinc-50 transition-colors"
-                        >
-                            <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((p) => (
+                {totalPages > 0 && (
+                    <div className="px-6 py-4 border-t border-zinc-100 flex items-center justify-between text-[9px] font-mono">
+                        <span className="text-zinc-400 uppercase tracking-widest">
+                            Showing {startIndex + 1}–{Math.min(startIndex + ITEMS_PER_PAGE, filtered.length)} of {filtered.length} events
+                        </span>
+                        <div className="flex items-center gap-2">
                             <button
-                                key={p}
-                                onClick={() => setCurrentPage(p)}
-                                className={`w-7 h-7 font-bold transition-colors ${
-                                    currentPage === p
-                                        ? "bg-zinc-950 text-white border-zinc-950"
-                                        : "bg-white text-zinc-400 border-zinc-200 hover:border-zinc-400"
-                                }`}
+                                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                                disabled={currentPage === 1}
+                                className="w-7 h-7 flex items-center justify-center border border-zinc-200 disabled:opacity-40 hover:bg-zinc-50 transition-colors"
                             >
-                                {p}
+                                <ChevronLeft className="w-4 h-4" />
                             </button>
-                        ))}
-                        <button
-                            onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-                            disabled={currentPage === totalPages || totalPages === 0}
-                            className="w-7 h-7 flex items-center justify-center border border-zinc-200 disabled:opacity-40 hover:bg-zinc-50 transition-colors"
-                        >
-                            <ChevronRight className="w-4 h-4" />
-                        </button>
+                            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((p) => (
+                                <button
+                                    key={p}
+                                    onClick={() => setCurrentPage(p)}
+                                    className={`w-7 h-7 font-bold transition-colors ${
+                                        currentPage === p
+                                            ? "bg-zinc-950 text-white border-zinc-950"
+                                            : "bg-white text-zinc-400 border-zinc-200 hover:border-zinc-400"
+                                    }`}
+                                >
+                                    {p}
+                                </button>
+                            ))}
+                            <button
+                                onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                                disabled={currentPage === totalPages || totalPages === 0}
+                                className="w-7 h-7 flex items-center justify-center border border-zinc-200 disabled:opacity-40 hover:bg-zinc-50 transition-colors"
+                            >
+                                <ChevronRight className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
             <CreateEventModal
