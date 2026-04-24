@@ -278,11 +278,7 @@ export default function EventDetailClient({ eventId }: Props) {
                             </div>
 
                             <TicketFooter 
-                                terms={[
-                                    "Valid only for the selected event",
-                                    "Photo ID required for entry",
-                                    "No refunds or exchanges"
-                                ]}
+                                terms={event.instructions && event.instructions.length > 0 ? event.instructions : undefined}
                                 poweredBy="RushTicket"
                                 showSecurityBadge={true}
                                 showSupportBadge={false}

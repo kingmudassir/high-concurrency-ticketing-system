@@ -1,72 +1,95 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { X, MapPin, CalendarDays, Banknote, Ticket, Zap, FileText } from "lucide-react";
+import React, { useState } from "react";
+import { X, CalendarDays, MapPin, Ticket, Banknote, FileText, Zap, Plus } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { updateEventAction } from "../actions/update-event";
-import type { EventDetail } from "../../../../events/[id]/actions/fetch-event";
-import { format } from "date-fns";
+import { createEventAction } from "@/app/actions/admin-actions/createEvent";
 
-interface EditEventModalProps {
+interface CreateEventModalProps {
     isOpen: boolean;
     onClose: () => void;
-    event: EventDetail;
 }
 
-export default function EditEventModal({ isOpen, onClose, event }: EditEventModalProps) {
+export default function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
     const [isLoading, setIsLoading] = useState(false);
     const queryClient = useQueryClient();
 
+    // Early return AFTER hooks — React rules of hooks require hooks always run unconditionally
     if (!isOpen) return null;
-
-    // Format date for datetime-local input (needs "YYYY-MM-DDTHH:mm")
-    const formatForInput = (date: Date) =>
-        format(new Date(date), "yyyy-MM-dd'T'HH:mm");
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
         setIsLoading(true);
 
         const formData = new FormData(e.currentTarget);
-        const result = await updateEventAction(event.id, formData);
+        
+        // Add required fields that are missing from the modal
+        formData.set("subtitle", "");
+        formData.set("coverImage", "");
+        formData.set("category", "concert"); // Default category
+        formData.set("tags", JSON.stringify([]));
+        formData.set("address", "");
+        formData.set("city", "");
+        formData.set("transport", "");
+        formData.set("parking", "");
+        formData.set("venueNotes", "");
+        formData.set("endDate", "");
+        formData.set("doorsOpen", "");
+        formData.set("instructions", JSON.stringify([]));
+        formData.set("lineup", JSON.stringify([]));
+        formData.set("gstPercent", "0");
+        formData.set("serviceFeePercent", "0");
+        
+        // Create a single tier from the modal's price and totalTickets
+        const tiers = [{
+            id: Math.random().toString(36).slice(2, 9),
+            name: "General Admission",
+            description: "Standard entry",
+            price: formData.get("price")?.toString() || "0",
+            capacity: formData.get("totalTickets")?.toString() || "0"
+        }];
+        formData.set("tiers", JSON.stringify(tiers));
+        
+        // Remove the old price and totalTickets fields since they're now in tiers
+        formData.delete("price");
+        formData.delete("totalTickets");
+        
+        const result = await createEventAction(formData);
 
         if (result.success) {
-            toast.success("EVENT UPDATED SUCCESSFULLY");
-            queryClient.invalidateQueries({ queryKey: ["event", event.id] });
+            toast.success("EVENT INITIALIZED SUCCESSFULLY");
             queryClient.invalidateQueries({ queryKey: ["events", "all"] });
             onClose();
+            // Optional: redirect to the new event page
+            // router.push(`/admin/events/${result.eventId}`);
         } else {
-            toast.error(result.error || "UPDATE FAILED");
+            toast.error(result.error || "CRITICAL ERROR DURING CREATION");
         }
-
         setIsLoading(false);
     }
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm"
                 onClick={onClose}
             />
+
+            {/* Modal */}
             <div className="relative w-full max-w-2xl bg-white border border-zinc-200 shadow-2xl animate-in zoom-in-95 duration-200 select-none max-h-[90vh] overflow-y-auto">
-                
-                <div className="absolute top-0 left-0 w-full h-1 bg-emerald-600" />
+                <div className="absolute top-0 left-0 w-full h-1 bg-zinc-950" />
 
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 sticky top-0 bg-white z-10">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-zinc-950 flex items-center justify-center">
-                            <Zap className="w-4 h-4 text-emerald-500 fill-emerald-500" />
+                            <Plus className="w-4 h-4 text-white" strokeWidth={3} />
                         </div>
-                        <div>
-                            <h2 className="text-sm font-bold uppercase tracking-tighter text-zinc-950">
-                                Modify Event
-                            </h2>
-                            <p className="text-[9px] font-mono text-zinc-400 uppercase tracking-widest mt-0.5">
-                                {event.id.slice(0, 16)}...
-                            </p>
-                        </div>
+                        <h2 className="text-sm font-bold uppercase tracking-tighter text-zinc-950">
+                            Create New Event
+                        </h2>
                     </div>
                     <button
                         onClick={onClose}
@@ -86,7 +109,7 @@ export default function EditEventModal({ isOpen, onClose, event }: EditEventModa
                             name="title"
                             type="text"
                             required
-                            defaultValue={event.title}
+                            placeholder="E.G. TECH SUMMIT 2026"
                             className="w-full bg-zinc-50 border border-zinc-200 py-3 px-4 text-xs font-bold uppercase tracking-tight focus:outline-none focus:border-zinc-950 focus:bg-white transition-all"
                         />
                     </div>
@@ -99,7 +122,7 @@ export default function EditEventModal({ isOpen, onClose, event }: EditEventModa
                         <textarea
                             name="description"
                             rows={3}
-                            defaultValue={event.description ?? ""}
+                            placeholder="SPECIFY EVENT PARAMETERS AND DETAILS..."
                             className="w-full bg-zinc-50 border border-zinc-200 py-3 px-4 text-xs font-medium focus:outline-none focus:border-zinc-950 focus:bg-white transition-all resize-none"
                         />
                     </div>
@@ -114,19 +137,18 @@ export default function EditEventModal({ isOpen, onClose, event }: EditEventModa
                                 name="location"
                                 type="text"
                                 required
-                                defaultValue={event.location}
+                                placeholder="LOCATION STRING"
                                 className="w-full bg-zinc-50 border border-zinc-200 py-3 px-4 text-[11px] font-mono focus:outline-none focus:border-zinc-950 transition-all"
                             />
                         </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                                <CalendarDays size={10} /> Start Timestamp
+                                <CalendarDays size={10} /> Timestamp Start
                             </label>
                             <input
                                 name="startDate"
                                 type="datetime-local"
                                 required
-                                defaultValue={formatForInput(event.startDate)}
                                 className="w-full bg-zinc-50 border border-zinc-200 py-3 px-4 text-[11px] font-mono focus:outline-none focus:border-zinc-950 transition-all"
                             />
                         </div>
@@ -143,25 +165,22 @@ export default function EditEventModal({ isOpen, onClose, event }: EditEventModa
                                 type="number"
                                 min="0"
                                 required
-                                defaultValue={event.price}
+                                placeholder="0"
                                 className="w-full bg-white border border-zinc-200 py-3 px-4 text-sm font-bold tabular-nums focus:outline-none focus:border-emerald-500 transition-all"
                             />
                         </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                                <Ticket size={10} /> Total Capacity
+                                <Ticket size={10} /> Total Supply
                             </label>
                             <input
                                 name="totalTickets"
                                 type="number"
-                                min={event.ticketsSold}
+                                min="1"
                                 required
-                                defaultValue={event.totalTickets}
+                                placeholder="MAX CAPACITY"
                                 className="w-full bg-white border border-zinc-200 py-3 px-4 text-sm font-bold tabular-nums focus:outline-none focus:border-emerald-500 transition-all"
                             />
-                            <p className="text-[9px] font-mono text-zinc-400">
-                                Min: {event.ticketsSold} (already sold)
-                            </p>
                         </div>
                     </div>
 
@@ -186,12 +205,12 @@ export default function EditEventModal({ isOpen, onClose, event }: EditEventModa
                             {isLoading ? (
                                 <>
                                     <div className="w-3 h-3 border-2 border-zinc-500 border-t-white rounded-full animate-spin" />
-                                    Updating...
+                                    Processing...
                                 </>
                             ) : (
                                 <>
                                     <Zap className="w-3 h-3 fill-current" />
-                                    Save Changes
+                                    Create Event
                                 </>
                             )}
                         </button>

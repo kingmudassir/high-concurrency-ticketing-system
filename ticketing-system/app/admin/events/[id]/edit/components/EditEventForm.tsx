@@ -16,6 +16,7 @@ import { EditFees } from "./EditFees";
 import { EditLineup } from "./EditLineup";
 import { EditInstructions } from "./EditInstructions";
 import { FormProgressBar } from "./progressBar";
+import { useEditEvent } from "@/app/hooks/Admin-Hooks/Edit-Event/useEditEvent";
 
 
 const SECTIONS = [
@@ -36,8 +37,7 @@ interface EditEventFormProps {
 
 export default function EditEventForm({ event }: EditEventFormProps) {
     const router = useRouter();
-    const queryClient = useQueryClient();
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const { editEvent, isEditing } = useEditEvent(); // Use isEditing from hook instead of isSubmitting
 
     const [expandedSection, setExpandedSection] = useState<string>("cover");
     const [completedSections, setCompletedSections] = useState<Set<string>>(new Set());
@@ -148,41 +148,30 @@ export default function EditEventForm({ event }: EditEventFormProps) {
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
-        setIsSubmitting(true);
-
-        const fd = new FormData();
-        fd.set("eventId", event.id);
-        fd.set("coverImage", imageUrl || "");
-        fd.set("category", category);
-        fd.set("tags", JSON.stringify(selectedTags));
-        fd.set("title", eventTitle);
-        fd.set("subtitle", eventSubtitle);
-        fd.set("description", eventDescription);
-        fd.set("location", location);
-        fd.set("address", address);
-        fd.set("city", city);
-        fd.set("transport", transport);
-        fd.set("parking", parking);
-        fd.set("venueNotes", venueNotes);
-        fd.set("startDate", startDate);
-        fd.set("endDate", endDate);
-        fd.set("doorsOpen", doorsOpen);
-        fd.set("tiers", JSON.stringify(tiers));
-        fd.set("instructions", JSON.stringify(instructions));
-        fd.set("lineup", JSON.stringify(lineup));
-        fd.set("gstPercent", gstPercent);
-        fd.set("serviceFeePercent", serviceFeePercent);
-
-        try {
-            // Call your update event action
-            toast.success("Event updated (action not yet implemented)");
-            router.push(`/admin/events/${event.id}`);
-        } catch (err) {
-            console.error(err);
-            toast.error("INTERNAL ERROR");
-        } finally {
-            setIsSubmitting(false);
-        }
+        
+        await editEvent({
+            eventId: event.id,
+            title: eventTitle,
+            subtitle: eventSubtitle,
+            description: eventDescription,
+            coverImage: imageUrl || "",
+            category: category,
+            tags: selectedTags,
+            location: location,
+            address: address,
+            city: city,
+            transport: transport,
+            parking: parking,
+            venueNotes: venueNotes,
+            startDate: startDate,
+            endDate: endDate,
+            doorsOpen: doorsOpen,
+            tiers: tiers,
+            instructions: instructions,
+            lineup: lineup,
+            gstPercent: gstPercent,
+            serviceFeePercent: serviceFeePercent,
+        });
     }
 
     return (
@@ -231,14 +220,14 @@ export default function EditEventForm({ event }: EditEventFormProps) {
                             whileTap={{ scale: 0.98 }}
                             type="submit"
                             form="edit-event-form"
-                            disabled={isSubmitting}
+                            disabled={isEditing}
                             className={`flex items-center gap-2 px-6 py-2.5 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all ${
-                                isSubmitting
+                                isEditing
                                     ? "bg-stone-200 text-stone-400 cursor-not-allowed"
                                     : "bg-emerald-600 text-white shadow-md hover:bg-emerald-700"
                             }`}
                         >
-                            {isSubmitting ? (
+                            {isEditing ? (
                                 <>
                                     <div className="w-3 h-3 border-2 border-stone-400 border-t-white rounded-full animate-spin" />
                                     Saving...
@@ -517,14 +506,14 @@ export default function EditEventForm({ event }: EditEventFormProps) {
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
                                 type="submit"
-                                disabled={isSubmitting}
+                                disabled={isEditing}
                                 className={`flex items-center gap-2 px-8 py-2.5 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all ${
-                                    isSubmitting
+                                    isEditing
                                         ? "bg-stone-200 text-stone-400 cursor-not-allowed"
                                         : "bg-emerald-600 text-white shadow-md hover:bg-emerald-700"
                                 }`}
                             >
-                                {isSubmitting ? (
+                                {isEditing ? (
                                     <>
                                         <div className="w-3 h-3 border-2 border-stone-400 border-t-white rounded-full animate-spin" />
                                         Saving...

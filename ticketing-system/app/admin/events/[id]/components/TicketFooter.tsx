@@ -15,11 +15,7 @@ interface TicketFooterProps {
 }
 
 export default function TicketFooter({ 
-    terms = [
-        "Valid only for the selected event",
-        "Non-transferable without ID verification",
-        "No refunds or exchanges"
-    ],
+    terms = [],
     supportEmail = "support@rushticket.com",
     supportPhone = "+1 (555) 123-4567",
     poweredBy = "RushTicket",
@@ -28,6 +24,13 @@ export default function TicketFooter({
     className = '' 
 }: TicketFooterProps) {
     
+    // If no terms provided, use default ones
+    const displayTerms = terms.length > 0 ? terms : [
+        "Valid only for the selected event",
+        "Photo ID required for entry",
+        "No refunds or exchanges"
+    ];
+
     return (
         <motion.div 
             initial={{ opacity: 0, y: 10 }}
@@ -43,7 +46,7 @@ export default function TicketFooter({
                         Terms & Conditions
                     </p>
                     <ul className="space-y-1">
-                        {terms.map((term, index) => (
+                        {displayTerms.map((term, index) => (
                             <li key={index} className="flex items-start gap-2">
                                 <span className="text-[6px] text-stone-400 mt-0.5">•</span>
                                 <span className="text-[7px] text-stone-500 leading-relaxed">
