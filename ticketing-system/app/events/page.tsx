@@ -1,22 +1,24 @@
 import EventsClient from './components/Eventsclient';
 
 interface EventsPageProps {
-    searchParams: {
+    searchParams: Promise<{
         q?: string;
         location?: string;
         category?: string;
         sort?: string;
         page?: string;
-    };
+    }>;
 }
 
-export default function EventsPage({ searchParams }: EventsPageProps) {
+export default async function EventsPage({ searchParams }: EventsPageProps) {
+    const params = await searchParams;
+    
     return (
         <EventsClient
-        initialQuery={searchParams.q || ''}
-        initialLocation={searchParams.location || ''}
-        initialCategory={searchParams.category || 'all'}
-        initialSort={searchParams.sort || 'trending'}
+            initialQuery={params.q || ''}
+            initialLocation={params.location || ''}
+            initialCategory={params.category || 'all'}
+            initialSort={params.sort || 'trending'}
         />
     );
 }

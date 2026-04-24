@@ -5,8 +5,8 @@ import { Menu, X, Layers, Activity, FileText, ArrowRight, LogOut, Star } from 'l
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { AuthButton } from '@/app/globalcomponents/AuthButton';
-import { getCurrentUser } from '@/app/actions/getuser/getUser';
 import { useLogout } from '@/app/hooks/logout/use-logout';
+import { useAuth } from '@/app/hooks/auth/useAuth';
 
 const GitHubIcon = () => (
   <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 fill-current">
@@ -17,26 +17,13 @@ const GitHubIcon = () => (
 export default function RushNavbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [user, setUser] = useState<any>(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const { logout, isLoggingOut } = useLogout();
+  const { user, isLoading } = useAuth();
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const response = await getCurrentUser();
-        if (response.success) setUser(response.user);
-      } catch (e) {
-        console.error("Auth check failed", e);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchUser();
-  }, []);
+  // Remove the manual fetchUser useEffect - useAuth already handles this!
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

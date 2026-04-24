@@ -34,6 +34,7 @@ model User {
 
   otp          String?
   otpExpiresAt DateTime?
+  savedEvents  SavedEvent[]
 }
 
 model Session {
@@ -116,6 +117,22 @@ model Event {
   tickets     Ticket[]
   ticketTiers TicketTier[]
   lineupActs  LineupAct[]
+  savedEvents SavedEvent[]
+}
+
+// ─── SAVED EVENTS ──────────────────────────────────────────────────────────────
+
+model SavedEvent {
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, eventId])
 }
 
 enum EventStatus {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify, decodeJwt } from "jose";
 
-const PROTECTED_ROUTES = ["/dashboard", "/my-tickets", "/settings", "/profile"];
+const PROTECTED_ROUTES = ["/dashboard", "/tickets", "/settings", "/profile"];
 const ADMIN_ROUTES = ["/admin"];
 const AUTH_ROUTES = ["/login", "/register", "/otp"];
 
@@ -16,6 +16,14 @@ export async function middleware(request: NextRequest) {
     const isProtectedRoute = PROTECTED_ROUTES.some((r) => pathname.startsWith(r));
     const isAdminRoute = ADMIN_ROUTES.some((r) => pathname.startsWith(r));
     const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r));
+    
+    // Check if it's an API route that should be excluded from auth
+    const isPublicApiRoute = pathname.startsWith("/api/saved-events");
+
+    // Skip auth for public API routes
+    if (isPublicApiRoute) {
+        return NextResponse.next();
+    }
 
     // 1. UNAUTHORIZED: No session at all
     if (!refreshToken && (isProtectedRoute || isAdminRoute)) {

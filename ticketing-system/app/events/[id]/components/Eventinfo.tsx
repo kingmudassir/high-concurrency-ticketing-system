@@ -1,7 +1,11 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from 'framer-motion';
-import { Calendar, MapPin, Users, Tag, Share2, Heart, AlertCircle, Clock } from 'lucide-react';
+import { Calendar, MapPin, Users, Tag, Share2, Heart, AlertCircle, Clock, Bookmark, Check } from 'lucide-react';
+import { useSaveEvent } from "@/app/hooks/saved-events/useSaveEvent";
+import { useAuth } from "@/app/hooks/auth/useAuth";
+import { checkIfSavedAction } from "../actions/check-if-saved";
 
 interface TicketTier {
     id: string;
@@ -23,7 +27,7 @@ interface RealEvent {
     id: string;
     title: string;
     artist?: string;
-    description: string | null;  // Change to string | null to match data
+    description: string | null;
     tags: string[];
     venue: string;
     city: string;
@@ -43,10 +47,58 @@ interface RealEvent {
 
 interface Props {
     event: RealEvent;
+    isSaved?: boolean;
+    onSaveStatusChange?: () => void;
 }
 
-export default function EventInfo({ event }: Props) {
-    // Use real lineup data from the event, or fallback to a default lineup based on event title
+export default function EventInfo({ event, isSaved: initialIsSaved = false, onSaveStatusChange }: Props) {
+    const { isAuthenticated } = useAuth();
+    const { saveEvent, unsaveEvent, isSaving, isUnsaving } = useSaveEvent();
+    const [isSaved, setIsSaved] = useState(initialIsSaved);
+    const [showAuthTooltip, setShowAuthTooltip] = useState(false);
+
+
+    // Check if event is saved when component mounts
+    useEffect(() => {
+        const checkIfSaved = async () => {
+            if (!isAuthenticated) return;
+            
+            try {
+                const result = await checkIfSavedAction(event.id);
+                if (result.success) {
+                    setIsSaved(result.isSaved);
+                }
+            } catch (error) {
+                console.error("Failed to check saved status:", error);
+            }
+        };
+        
+        checkIfSaved();
+    }, [event.id, isAuthenticated]);
+
+    const handleSaveClick = async () => {
+        if (!isAuthenticated) {
+            setShowAuthTooltip(true);
+            setTimeout(() => setShowAuthTooltip(false), 3000);
+            return;
+        }
+
+        if (isSaved) {
+            const success = await unsaveEvent(event.id);
+            if (success) {
+                setIsSaved(false);
+                onSaveStatusChange?.();
+            }
+        } else {
+            const success = await saveEvent(event.id);
+            if (success) {
+                setIsSaved(true);
+                onSaveStatusChange?.();
+            }
+        }
+    };
+
+    // Use real lineup data from the event
     const lineup = event.lineupActs && event.lineupActs.length > 0
         ? event.lineupActs.map(act => ({
             name: act.name,
@@ -94,10 +146,36 @@ export default function EventInfo({ event }: Props) {
             className="space-y-10"
         >
             {/* Actions row */}
-            <div className="flex items-center gap-3 pt-1">
-                <button className="flex items-center gap-2 px-4 py-2.5 border border-zinc-200 text-zinc-500 hover:border-zinc-950 hover:text-zinc-950 text-[10px] font-black uppercase tracking-widest transition-all">
-                    <Heart className="w-3.5 h-3.5" /> Save
-                </button>
+            <div className="flex items-center gap-3 pt-1 relative">
+                <div className="relative">
+                    <button
+                        onClick={handleSaveClick}
+                        disabled={isSaving || isUnsaving}
+                        className={`flex items-center gap-2 px-4 py-2.5 border transition-all text-[10px] font-black uppercase tracking-widest ${
+                            isSaved
+                                ? 'bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-600'
+                                : 'border-zinc-200 text-zinc-500 hover:border-zinc-950 hover:text-zinc-950'
+                        }`}
+                    >
+                        {isSaving || isUnsaving ? (
+                            <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : isSaved ? (
+                            <Check className="w-3.5 h-3.5" />
+                        ) : (
+                            <Heart className="w-3.5 h-3.5" />
+                        )}
+                        {isSaved ? "Saved" : "Save"}
+                    </button>
+                    
+                    {/* Auth tooltip */}
+                    {showAuthTooltip && (
+                        <div className="absolute top-full left-0 mt-2 px-3 py-2 bg-zinc-950 text-white text-[10px] font-mono rounded shadow-lg whitespace-nowrap z-10">
+                            Login to save events
+                            <div className="absolute -top-1 left-4 w-2 h-2 bg-zinc-950 rotate-45" />
+                        </div>
+                    )}
+                </div>
+                
                 <button className="flex items-center gap-2 px-4 py-2.5 border border-zinc-200 text-zinc-500 hover:border-zinc-950 hover:text-zinc-950 text-[10px] font-black uppercase tracking-widest transition-all">
                     <Share2 className="w-3.5 h-3.5" /> Share
                 </button>

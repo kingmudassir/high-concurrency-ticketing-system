@@ -77,6 +77,7 @@ interface Props {
 export default function EventDetailClient({ event, related }: Props) {
     const [selectedTier, setSelectedTier] = useState(0);
     const [quantity, setQuantity] = useState(1);
+    const [eventData, setEventData] = useState(event);
 
     // Normalize event data to ensure all required fields exist
     const normalizedEvent: RealEvent = {
