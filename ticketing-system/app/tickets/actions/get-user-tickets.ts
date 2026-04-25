@@ -4,8 +4,20 @@ import { getPrisma } from "@/lib/db/prisma";
 
 export async function getUserTickets(userId: string) {
     const prisma = getPrisma();
+    const now = new Date();
     
     try {
+        // First, update any expired pending tickets to EXPIRED status
+        await prisma.ticket.updateMany({
+            where: {
+                userId,
+                status: "PENDING",
+                expiresAt: { lt: now }
+            },
+            data: { status: "EXPIRED" }
+        });
+
+        // Then fetch all tickets
         const tickets = await prisma.ticket.findMany({
             where: { userId },
             include: {

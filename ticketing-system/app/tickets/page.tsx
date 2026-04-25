@@ -219,6 +219,43 @@ export default function TicketsPage() {
         return groupedTickets.filter(t => t.status === tab).length;
     };
 
+    // Add this function before the useEffect
+    const checkAndUpdateExpiredTickets = async () => {
+        if (!user) return;
+        
+        try {
+            const response = await fetch('/api/tickets/cleanup-expired', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id })
+            });
+            
+            if (response.ok) {
+                // Refresh the tickets list
+                const ticketsResult = await getUserTickets(user.id);
+                if (ticketsResult.success && ticketsResult.tickets) {
+                    const grouped = groupAndTransformTickets(ticketsResult.tickets);
+                    setGroupedTickets(grouped);
+                }
+            }
+        } catch (error) {
+            console.error("Failed to cleanup expired tickets:", error);
+        }
+    };
+
+    // Add this useEffect to run cleanup periodically
+    useEffect(() => {
+        if (!isAuthenticated || !user) return;
+        
+        // Check immediately on mount
+        checkAndUpdateExpiredTickets();
+        
+        // Check every 30 seconds for expired tickets
+        const interval = setInterval(checkAndUpdateExpiredTickets, 30000);
+        
+        return () => clearInterval(interval);
+    }, [isAuthenticated, user]);
+
     // Show loading state while checking auth
     if (authLoading) {
         return (

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Providers from "./globalcomponents/Providers";
+import NekoCursor from "./globalcomponents/Neko/NekoCursor";
 
 export const metadata: Metadata = {
     title: "FluxTicket — High-Traffic Event Ticketing",
@@ -17,7 +18,8 @@ export default function RootLayout({
         <html lang="en">
         <body>
             <Providers>
-                    {children}
+                <NekoCursor />
+                {children}
             </Providers>
         </body>
         </html>
