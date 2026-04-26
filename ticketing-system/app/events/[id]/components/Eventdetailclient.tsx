@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import EventHero from './Eventhero';
 import EventInfo from './Eventinfo';
 import TicketPanel from './Ticketpanel';
@@ -27,7 +28,7 @@ interface RealEvent {
     id: string;
     title: string;
     artist?: string;
-    description: string | null;  // Keep as string | null
+    description: string | null;
     image?: string;
     imageUrl?: string;
     category: string;
@@ -75,33 +76,65 @@ interface Props {
 }
 
 export default function EventDetailClient({ event, related }: Props) {
+    const router = useRouter();
     const [selectedTier, setSelectedTier] = useState(0);
     const [quantity, setQuantity] = useState(1);
-    const [eventData, setEventData] = useState(event);
+    const [currentEvent, setCurrentEvent] = useState(event);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    // Refresh function to reload the page data
+    const refreshEventData = useCallback(async () => {
+        if (isRefreshing) return;
+        setIsRefreshing(true);
+        router.refresh();
+        // Reset refreshing state after a short delay
+        setTimeout(() => setIsRefreshing(false), 1000);
+    }, [router, isRefreshing]);
+
+    // Update currentEvent when prop changes (after refresh)
+    useEffect(() => {
+        setCurrentEvent(event);
+    }, [event]);
 
     // Normalize event data to ensure all required fields exist
     const normalizedEvent: RealEvent = {
-        ...event,
-        tags: event.tags || [],
-        totalCapacity: event.totalCapacity || event.capacity || 0,
-        ticketsSold: event.ticketsSold || event.soldCount || 0,
-        description: event.description ?? '', // Use nullish coalescing to keep null if null, otherwise empty string
-        instructions: event.instructions || [],
-        lineupActs: event.lineupActs || [],
-        ticketTiers: event.ticketTiers || [],
-        gstPercent: event.gstPercent || 0,
-        serviceFeePercent: event.serviceFeePercent || 0,
-        demand: event.demand || 0,
-        isHot: event.isHot || false,
-        isSoldOut: event.isSoldOut || false,
+        ...currentEvent,
+        tags: currentEvent.tags || [],
+        totalCapacity: currentEvent.totalCapacity || currentEvent.capacity || 0,
+        ticketsSold: currentEvent.ticketsSold ?? currentEvent.soldCount ?? 0,
+        description: currentEvent.description ?? '',
+        instructions: currentEvent.instructions || [],
+        lineupActs: currentEvent.lineupActs || [],
+        ticketTiers: currentEvent.ticketTiers || [],
+        gstPercent: currentEvent.gstPercent || 0,
+        serviceFeePercent: currentEvent.serviceFeePercent || 0,
+        demand: currentEvent.demand || 0,
+        isHot: currentEvent.isHot || false,
+        isSoldOut: (currentEvent.ticketsSold ?? currentEvent.soldCount ?? 0) >= (currentEvent.totalCapacity ?? currentEvent.capacity ?? 0),
     };
 
     // Check if event has ended
-    const isEventOver = () => {
+    const isEventOver = useCallback(() => {
         const now = new Date();
-        const eventEndDate = normalizedEvent.endDate ? new Date(normalizedEvent.endDate) : new Date(normalizedEvent.startDate || now);
+        const eventEndDate = normalizedEvent.endDate 
+            ? new Date(normalizedEvent.endDate) 
+            : (normalizedEvent.startDate ? new Date(normalizedEvent.startDate) : now);
         return eventEndDate < now;
-    };
+    }, [normalizedEvent.endDate, normalizedEvent.startDate]);
+
+    // Debug log to see what values are coming in
+    useEffect(() => {
+        console.log('📊 EventDetailClient - Event data:', {
+            id: normalizedEvent.id,
+            title: normalizedEvent.title,
+            ticketsSold: normalizedEvent.ticketsSold,
+            totalCapacity: normalizedEvent.totalCapacity,
+            isSoldOut: normalizedEvent.isSoldOut,
+            soldCount: currentEvent.soldCount,
+            capacity: currentEvent.capacity,
+            isRefreshing,
+        });
+    }, [normalizedEvent, currentEvent, isRefreshing]);
 
     if (isEventOver()) {
         return (
@@ -135,6 +168,7 @@ export default function EventDetailClient({ event, related }: Props) {
                                 quantity={quantity}
                                 onTierChange={setSelectedTier}
                                 onQuantityChange={setQuantity}
+                                refreshEvent={refreshEventData}
                             />
                         </div>
                     </aside>

@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { getPrisma } from "@/lib/db/prisma";
 import { decodeJwt } from "jose";
 import { revalidatePath } from "next/cache";
+import { getRedisClient } from "@/lib/redis/redis";
 
 interface ActionResponse {
     success: boolean;
@@ -22,6 +23,22 @@ interface LineupInput {
     name: string;
     role: "HEADLINER" | "SUPPORT" | "OPENER" | "SPECIAL_GUEST";
     startTime?: string;
+}
+
+// Helper to invalidate Redis cache for event listings
+async function invalidateEventCache() {
+    try {
+        const redis = await getRedisClient();
+        if (redis) {
+            // Delete cached first page of recent events
+            await redis.del("events:recent:page1");
+            
+            console.log("🗑️ Redis cache invalidated for events:recent:page1");
+        }
+    } catch (error) {
+        console.error("Failed to invalidate Redis cache:", error);
+        // Don't fail the event creation if cache invalidation fails
+    }
 }
 
 export async function createEventAction(formData: FormData): Promise<ActionResponse> {
@@ -44,7 +61,7 @@ export async function createEventAction(formData: FormData): Promise<ActionRespo
         const title        = formData.get("title")?.toString().trim();
         const subtitle     = formData.get("subtitle")?.toString().trim() || null;
         const description  = formData.get("description")?.toString().trim() || null;
-        const imageUrl     = formData.get("coverImage")?.toString().trim() || null; // ADD THIS
+        const imageUrl     = formData.get("coverImage")?.toString().trim() || null;
         const category     = formData.get("category")?.toString().trim();
         const location     = formData.get("location")?.toString().trim();
         const address      = formData.get("address")?.toString().trim() || null;
@@ -124,7 +141,7 @@ export async function createEventAction(formData: FormData): Promise<ActionRespo
                     title,
                     subtitle,
                     description,
-                    imageUrl, // Now using the Cloudinary URL from formData
+                    imageUrl,
                     category,
                     tags,
                     location,
@@ -172,6 +189,10 @@ export async function createEventAction(formData: FormData): Promise<ActionRespo
             return event;
         });
 
+        // ── Invalidate Redis cache so the new event appears immediately ────
+        await invalidateEventCache();
+
+        // ── Revalidate Next.js cache paths ─────────────────────────────────
         revalidatePath("/admin/events");
         revalidatePath("/events");
 

@@ -35,6 +35,13 @@ model User {
   otp          String?
   otpExpiresAt DateTime?
   savedEvents  SavedEvent[]
+
+  @@index([status])
+  @@index([role])
+  @@index([deletedAt])
+  @@index([lastLogin])
+  @@index([emailVerified])
+  @@index([status, role])
 }
 
 model Session {
@@ -49,6 +56,10 @@ model Session {
 
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([userId, expiresAt])
 }
 
 model AuthAuditLog {
@@ -59,6 +70,12 @@ model AuthAuditLog {
   ipAddress String?
   userAgent String?
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([action])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
 }
 
 enum UserStatus {
@@ -78,26 +95,26 @@ enum Role {
 model Event {
   id          String  @id @default(cuid())
   title       String
-  subtitle    String? // optional sub-heading shown below title
+  subtitle    String?
   description String?
-  imageUrl    String? // banner / poster image URL
+  imageUrl    String?
 
   // Categorisation
-  category String // primary: "concert" | "festival" | "sports" | etc.
-  tags     String[] // sub-tags: ["rock", "indie", "live-band"]
+  category String
+  tags     String[]
 
   // Location & Venue
-  location   String // short display name, e.g. "Madison Square Garden"
-  address    String? // full street address
+  location   String
+  address    String?
   city       String?
-  transport  String? // public transport directions
-  parking    String? // parking info
-  venueNotes String? // any extra venue detail
+  transport  String?
+  parking    String?
+  venueNotes String?
 
   // Timing
   startDate DateTime
-  endDate   DateTime? // multi-day events; null = single day
-  doorsOpen DateTime? // doors-open time
+  endDate   DateTime?
+  doorsOpen DateTime?
 
   // Fees (stored as integer percentage, e.g. 17 = 17%)
   gstPercent        Int @default(0)
@@ -107,7 +124,7 @@ model Event {
   instructions String[]
 
   // Denormalised aggregates for fast reads
-  totalTickets Int @default(0) // sum of all tier capacities
+  totalTickets Int @default(0)
   ticketsSold  Int @default(0)
 
   status    EventStatus @default(DRAFT)
@@ -118,6 +135,20 @@ model Event {
   ticketTiers TicketTier[]
   lineupActs  LineupAct[]
   savedEvents SavedEvent[]
+
+  // Essential indexes for browsing and filtering
+  @@index([status])
+  @@index([category])
+  @@index([city])
+  @@index([startDate])
+  @@index([createdAt])
+  @@index([ticketsSold])
+  @@index([status, startDate])
+  @@index([status, category])
+  @@index([status, city])
+  @@index([category, city])
+  @@index([status, startDate, category])
+  @@index([title]) // For search functionality
 }
 
 // ─── SAVED EVENTS ──────────────────────────────────────────────────────────────
@@ -133,6 +164,10 @@ model SavedEvent {
   updatedAt DateTime @updatedAt
 
   @@unique([userId, eventId])
+  @@index([userId])
+  @@index([eventId])
+  @@index([createdAt])
+  @@index([userId, createdAt])
 }
 
 enum EventStatus {
@@ -149,10 +184,10 @@ model TicketTier {
   eventId String
   event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
-  name        String // "General Admission" | "VIP" | "Premium" | custom
-  description String? // perks description
-  price       Int // base price in PKR
-  capacity    Int // max tickets for this tier
+  name        String
+  description String?
+  price       Int
+  capacity    Int
   sold        Int     @default(0)
   sortOrder   Int     @default(0)
 
@@ -160,6 +195,12 @@ model TicketTier {
   updatedAt DateTime @updatedAt
 
   tickets Ticket[]
+
+  @@index([eventId])
+  @@index([price])
+  @@index([eventId, sortOrder])
+  @@index([eventId, price])
+  @@index([sold])
 }
 
 // ─── LINEUP ACT ───────────────────────────────────────────────────────────────
@@ -169,10 +210,15 @@ model LineupAct {
   eventId String
   event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
-  name      String // artist / act name
+  name      String
   role      LineupRole
-  startTime String? // display string: "10:00 PM"
+  startTime String?
   sortOrder Int        @default(0)
+
+  @@index([eventId])
+  @@index([role])
+  @@index([eventId, sortOrder])
+  @@index([eventId, role])
 }
 
 enum LineupRole {
@@ -204,4 +250,15 @@ model Ticket {
 
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([eventId])
+  @@index([tierId])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([createdAt])
+  @@index([userId, status])
+  @@index([eventId, status])
+  @@index([userId, eventId])
+  @@index([status, expiresAt])
 }

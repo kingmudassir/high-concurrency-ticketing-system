@@ -3,6 +3,7 @@
 import { getPrisma } from "@/lib/db/prisma";
 import { cookies } from "next/headers";
 import { decodeJwt } from "jose";
+import { getRedisClient } from "@/lib/redis/redis";
 
 export type TicketTier = {
     id: string;
@@ -68,7 +69,6 @@ export type EventDetail = {
     status: string;
     createdAt: Date;
     updatedAt: Date;
-    // Relations
     ticketTiers: TicketTier[];
     lineupActs: LineupAct[];
     tickets: EventTicket[];
@@ -78,15 +78,56 @@ type FetchEventResult =
     | { success: true; data: EventDetail }
     | { success: false; error: string };
 
-// Public version - no auth required
+// Helper to generate cache key for event
+function getEventCacheKey(eventId: string): string {
+    return `event:${eventId}`;
+}
+
+// Helper to invalidate event cache (call when event is updated)
+export async function invalidateEventCache(eventId: string) {
+    try {
+        const redis = await getRedisClient();
+        if (redis) {
+            const cacheKey = getEventCacheKey(eventId);
+            await redis.del(cacheKey);
+            console.log(`🗑️ Redis cache invalidated for: ${cacheKey}`);
+        }
+    } catch (error) {
+        console.error("Failed to invalidate event cache:", error);
+    }
+}
+
+// Public version - with Redis caching
+// Public version - with Redis caching
 export async function fetchPublicEventById(eventId: string): Promise<FetchEventResult> {
     const prisma = getPrisma();
+    const cacheKey = getEventCacheKey(eventId);
 
     try {
+        // 1. Try to get from Redis cache
+        const redis = await getRedisClient();
+        
+        if (redis) {
+            const cached = await redis.get(cacheKey);
+            if (cached) {
+                console.log(`📦 Redis cache HIT for: ${cacheKey}`);
+                const parsedData = JSON.parse(cached);
+                // Convert dates back from ISO strings
+                parsedData.data.startDate = new Date(parsedData.data.startDate);
+                if (parsedData.data.endDate) parsedData.data.endDate = new Date(parsedData.data.endDate);
+                if (parsedData.data.doorsOpen) parsedData.data.doorsOpen = new Date(parsedData.data.doorsOpen);
+                parsedData.data.createdAt = new Date(parsedData.data.createdAt);
+                parsedData.data.updatedAt = new Date(parsedData.data.updatedAt);
+                return parsedData as FetchEventResult;
+            }
+            console.log(`📦 Redis cache MISS for: ${cacheKey}`);
+        }
+
+        // 2. Cache miss - fetch from database
         const event = await prisma.event.findUnique({
             where: { 
                 id: eventId,
-                status: "PUBLISHED" // Only show published events
+                status: "PUBLISHED"
             },
             include: {
                 ticketTiers: {
@@ -95,7 +136,6 @@ export async function fetchPublicEventById(eventId: string): Promise<FetchEventR
                 lineupActs: {
                     orderBy: { sortOrder: 'asc' },
                 },
-                // Don't include tickets for public view for security
             },
         });
 
@@ -103,7 +143,6 @@ export async function fetchPublicEventById(eventId: string): Promise<FetchEventR
             return { success: false, error: "EVENT_NOT_FOUND" };
         }
 
-        // Transform to match the EventDetail type (without tickets)
         const formattedEvent: EventDetail = {
             id: event.id,
             title: event.title,
@@ -131,21 +170,31 @@ export async function fetchPublicEventById(eventId: string): Promise<FetchEventR
             updatedAt: event.updatedAt,
             ticketTiers: event.ticketTiers,
             lineupActs: event.lineupActs,
-            tickets: [], // Public view doesn't get ticket details
+            tickets: [],
         };
 
-        return { success: true, data: formattedEvent };
+        const result: FetchEventResult = { success: true, data: formattedEvent };
+
+        // 3. Store in Redis cache
+        if (redis) {
+            // Cache for 1 hour (3600 seconds)
+            await redis.setEx(cacheKey, 3600, JSON.stringify(result));
+            console.log(`💾 Redis cache STORED for: ${cacheKey} (TTL: 1 hour)`);
+        }
+
+        return result;
     } catch (error) {
         console.error("[fetchPublicEventById] Error:", error);
         return { success: false, error: "INTERNAL_SERVER_ERROR" };
     }
 }
 
-// Admin version - requires auth
+// Admin version - with Redis caching (shorter TTL for admin)
 export async function fetchEventById(eventId: string): Promise<FetchEventResult> {
     const prisma = getPrisma();
     const cookieStore = await cookies();
     const accessToken = cookieStore.get("access_token")?.value;
+    const cacheKey = getEventCacheKey(eventId);
 
     if (!accessToken) {
         return { success: false, error: "UNAUTHORIZED: SESSION EXPIRED" };
@@ -155,6 +204,24 @@ export async function fetchEventById(eventId: string): Promise<FetchEventResult>
         const payload = decodeJwt(accessToken) as { role?: string };
         if (payload.role !== "ADMIN") {
             return { success: false, error: "FORBIDDEN: INSUFFICIENT PERMISSIONS" };
+        }
+
+        // Admin can skip cache or use shorter TTL
+        const redis = await getRedisClient();
+        
+        if (redis) {
+            const cached = await redis.get(cacheKey);
+            if (cached) {
+                console.log(`📦 [ADMIN] Redis cache HIT for: ${cacheKey}`);
+                const parsedData = JSON.parse(cached);
+                // Convert dates back from ISO strings
+                parsedData.data.startDate = new Date(parsedData.data.startDate);
+                if (parsedData.data.endDate) parsedData.data.endDate = new Date(parsedData.data.endDate);
+                if (parsedData.data.doorsOpen) parsedData.data.doorsOpen = new Date(parsedData.data.doorsOpen);
+                parsedData.data.createdAt = new Date(parsedData.data.createdAt);
+                parsedData.data.updatedAt = new Date(parsedData.data.updatedAt);
+                return parsedData as FetchEventResult;
+            }
         }
 
         const event = await prisma.event.findUnique({
@@ -192,7 +259,6 @@ export async function fetchEventById(eventId: string): Promise<FetchEventResult>
             return { success: false, error: "EVENT_NOT_FOUND" };
         }
 
-        // Transform to match the EventDetail type
         const formattedEvent: EventDetail = {
             id: event.id,
             title: event.title,
@@ -223,7 +289,15 @@ export async function fetchEventById(eventId: string): Promise<FetchEventResult>
             tickets: event.tickets,
         };
 
-        return { success: true, data: formattedEvent };
+        const result: FetchEventResult = { success: true, data: formattedEvent };
+
+        // Cache for admin with shorter TTL (10 minutes)
+        if (redis) {
+            await redis.setEx(cacheKey, 600, JSON.stringify(result));
+            console.log(`💾 [ADMIN] Redis cache STORED for: ${cacheKey} (TTL: 10 min)`);
+        }
+
+        return result;
     } catch (error) {
         console.error("[fetchEventById] Error:", error);
         return { success: false, error: "INTERNAL_SERVER_ERROR" };

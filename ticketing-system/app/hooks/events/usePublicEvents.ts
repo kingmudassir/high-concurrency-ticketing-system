@@ -24,19 +24,55 @@ export interface PublicEvent {
     }>;
 }
 
-export function usePublicEvents() {
+export interface PaginationInfo {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    itemsPerPage: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+}
+
+export interface EventFilters {
+    query?: string;
+    location?: string;
+    category?: string;
+    sort?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    dateFilter?: string;
+    page?: number;
+    limit?: number;
+}
+
+export function usePaginatedPublicEventsAlt(filters?: EventFilters) {
+    const page = filters?.page ?? 1;
+    const limit = filters?.limit ?? 20;
+    const sort = filters?.sort ?? 'recent';
+    
+    const finalFilters = {
+        sort,
+        ...filters,
+        page,
+        limit
+    };
+    
     return useQuery({
-        queryKey: ["public-events"],
+        queryKey: ["public-events", finalFilters],
         queryFn: async () => {
-            const response = await fetchPublicEvents();
+            const response = await fetchPublicEvents(finalFilters);
             
             if (!response.success) {
                 throw new Error(response.error || "Failed to fetch events");
             }
             
-            return response.data as PublicEvent[];
+            return {
+                events: response.data as PublicEvent[],
+                pagination: response.pagination as PaginationInfo
+            };
         },
-        refetchInterval: 30000,
-        staleTime: 10000,
+        refetchInterval: false,
+        staleTime: 30000,
+        gcTime: 5 * 60 * 1000,
     });
 }

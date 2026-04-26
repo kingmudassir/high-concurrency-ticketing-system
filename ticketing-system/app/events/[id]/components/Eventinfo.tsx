@@ -37,7 +37,7 @@ interface RealEvent {
     venueNotes?: string | null;
     totalCapacity: number;
     ticketsSold: number;
-    demand: number;
+    demand?: number;
     ticketTiers?: TicketTier[];
     lineupActs?: LineupAct[];
     instructions?: string[];
@@ -57,6 +57,15 @@ export default function EventInfo({ event, isSaved: initialIsSaved = false, onSa
     const [isSaved, setIsSaved] = useState(initialIsSaved);
     const [showAuthTooltip, setShowAuthTooltip] = useState(false);
 
+    // Debug: Log the event data to see what's coming in
+    useEffect(() => {
+        console.log('📊 EventInfo received event:', {
+            id: event.id,
+            title: event.title,
+            ticketsSold: event.ticketsSold,
+            totalCapacity: event.totalCapacity,
+        });
+    }, [event]);
 
     // Check if event is saved when component mounts
     useEffect(() => {
@@ -126,10 +135,11 @@ export default function EventInfo({ event, isSaved: initialIsSaved = false, onSa
             `Doors open ${event.doorsOpen ? new Date(event.doorsOpen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '90 minutes'} before showtime`,
         ];
 
-    const capacity = event.totalCapacity;
-    const sold = event.ticketsSold;
-    const remaining = capacity - sold;
-    const pct = capacity > 0 ? Math.round((sold / capacity) * 100) : 0;
+    // Ensure we have valid numbers for calculations
+    const capacity = event.totalCapacity || 0;
+    const sold = event.ticketsSold || 0;
+    const remaining = Math.max(0, capacity - sold);
+    const pct = capacity > 0 ? Math.min(100, Math.round((sold / capacity) * 100)) : 0;
 
     // Helper to format date
     const formatDate = (date: Date | string | undefined) => {

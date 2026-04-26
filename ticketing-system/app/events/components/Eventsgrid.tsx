@@ -26,53 +26,36 @@ interface RealEvent {
         capacity: number;
         sold: number;
     }>;
-    // status: string;  // REMOVE THIS - not needed for public events
+}
+
+interface PaginationInfo {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    itemsPerPage: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
 }
 
 interface GridProps {
-    events: RealEvent[];  // Add this - receive pre-filtered events
+    events: RealEvent[];
     sort: string;
     onSortChange: (sort: string) => void;
     isLoading?: boolean;
+    pagination?: PaginationInfo;
+    onPageChange?: (page: number) => void;
 }
 
-export default function EventsGrid({ events, sort, onSortChange, isLoading }: GridProps) {
-    // Sort events based on the selected sort option
-    const getSortedEvents = (): RealEvent[] => {
-        const sorted = [...events];
-        
-        switch (sort) {
-            case 'date':
-                return sorted.sort((a, b) => 
-                    new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
-                );
-            case 'price-low':
-                return sorted.sort((a, b) => {
-                    const aPrice = Math.min(...(a.ticketTiers?.map(t => t.price) || [0]));
-                    const bPrice = Math.min(...(b.ticketTiers?.map(t => t.price) || [0]));
-                    return aPrice - bPrice;
-                });
-            case 'price-high':
-                return sorted.sort((a, b) => {
-                    const aPrice = Math.min(...(a.ticketTiers?.map(t => t.price) || [0]));
-                    const bPrice = Math.min(...(b.ticketTiers?.map(t => t.price) || [0]));
-                    return bPrice - aPrice;
-                });
-            case 'popular':
-                return sorted.sort((a, b) => b.ticketsSold - a.ticketsSold);
-            case 'trending':
-            default:
-                return sorted.sort((a, b) => {
-                    const aDemand = (a.ticketsSold / a.totalCapacity) * 100;
-                    const bDemand = (b.ticketsSold / b.totalCapacity) * 100;
-                    return bDemand - aDemand;
-                });
-        }
-    };
-
-    const sortedEvents = getSortedEvents();
-
-    if (isLoading) {
+export default function EventsGrid({ 
+    events, 
+    sort, 
+    onSortChange, 
+    isLoading, 
+    pagination, 
+    onPageChange 
+}: GridProps) {
+    
+    if (isLoading && events.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-24 text-center">
                 <div className="w-8 h-8 border-2 border-zinc-200 border-t-zinc-950 rounded-full animate-spin mb-4" />
@@ -83,7 +66,7 @@ export default function EventsGrid({ events, sort, onSortChange, isLoading }: Gr
         );
     }
 
-    if (sortedEvents.length === 0) {
+    if (events.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-24 text-center">
                 <div className="w-16 h-16 bg-zinc-100 flex items-center justify-center mb-6 rounded-full">
@@ -100,7 +83,7 @@ export default function EventsGrid({ events, sort, onSortChange, isLoading }: Gr
             {/* Result count + inline sort */}
             <div className="flex items-center justify-between mb-6">
                 <p className="text-sm font-bold text-zinc-500">
-                    <span className="text-zinc-950">{sortedEvents.length}</span> events
+                    <span className="text-zinc-950">{pagination?.totalItems || events.length}</span> events
                 </p>
                 <div className="flex items-center gap-2">
                     <span className="text-[9px] font-mono text-zinc-400 uppercase tracking-widest hidden sm:inline">Sort:</span>
@@ -124,11 +107,64 @@ export default function EventsGrid({ events, sort, onSortChange, isLoading }: Gr
                 className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"
             >
                 <AnimatePresence mode="popLayout">
-                    {sortedEvents.map((event, i) => (
+                    {events.map((event, i) => (
                         <EventCard key={event.id} event={event} index={i} />
                     ))}
                 </AnimatePresence>
             </motion.div>
+
+            {/* Pagination */}
+            {pagination && pagination.totalPages > 1 && (
+                <div className="flex justify-center items-center gap-2 mt-12">
+                    <button
+                        onClick={() => onPageChange?.(pagination.currentPage - 1)}
+                        disabled={!pagination.hasPrevPage}
+                        className="px-4 py-2 text-sm font-mono font-bold text-zinc-600 border border-zinc-200 hover:border-zinc-400 hover:text-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-zinc-200 transition-all"
+                    >
+                        Previous
+                    </button>
+                    
+                    <div className="flex gap-1">
+                        {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                            let pageNum: number;
+                            const current = pagination.currentPage;
+                            const total = pagination.totalPages;
+                            
+                            if (total <= 5) {
+                                pageNum = i + 1;
+                            } else if (current <= 3) {
+                                pageNum = i + 1;
+                            } else if (current >= total - 2) {
+                                pageNum = total - 4 + i;
+                            } else {
+                                pageNum = current - 2 + i;
+                            }
+                            
+                            return (
+                                <button
+                                    key={pageNum}
+                                    onClick={() => onPageChange?.(pageNum)}
+                                    className={`w-10 h-10 text-sm font-mono font-bold border transition-all ${
+                                        pagination.currentPage === pageNum
+                                            ? 'bg-zinc-950 text-white border-zinc-950'
+                                            : 'text-zinc-600 border-zinc-200 hover:border-zinc-400 hover:text-zinc-900'
+                                    }`}
+                                >
+                                    {pageNum}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    
+                    <button
+                        onClick={() => onPageChange?.(pagination.currentPage + 1)}
+                        disabled={!pagination.hasNextPage}
+                        className="px-4 py-2 text-sm font-mono font-bold text-zinc-600 border border-zinc-200 hover:border-zinc-400 hover:text-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-zinc-200 transition-all"
+                    >
+                        Next
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
@@ -165,7 +201,7 @@ function EventCard({ event, index }: { event: RealEvent; index: number }) {
     // Check if event is hot (80%+ sold)
     const isHot = demandPercent >= 80 && !isSoldOut;
 
-    // Get the display title - check both title and name fields
+    // Get the display title
     const displayTitle = event.title || event.name || 'Untitled Event';
 
     return (

@@ -4,12 +4,27 @@ import { cookies } from "next/headers";
 import { getPrisma } from "@/lib/db/prisma";
 import { decodeJwt } from "jose";
 import { revalidatePath } from "next/cache";
+import { getRedisClient } from "@/lib/redis/redis";
 
 interface CancelReservationResponse {
     success: boolean;
     cancelledCount?: number;
     error?: string;
     code?: string;
+}
+
+// Helper to clear Redis cache for an event
+async function clearEventCache(eventId: string) {
+    try {
+        const redis = await getRedisClient();
+        if (redis) {
+            await redis.del("events:recent:page1");
+            await redis.del(`event:${eventId}`);
+            console.log(`🗑️ Cleared Redis cache for event ${eventId}`);
+        }
+    } catch (error) {
+        console.error("Failed to clear Redis cache:", error);
+    }
 }
 
 export async function cancelReservationAction(ticketIds: string[]): Promise<CancelReservationResponse> {
@@ -46,6 +61,9 @@ export async function cancelReservationAction(ticketIds: string[]): Promise<Canc
         };
     }
 
+    // ─── Store event IDs to clear cache later ───────────────────────────────
+    let affectedEventIds = new Set<string>();
+
     // ─── 2. Database Transaction ─────────────────────────────────────────────
     try {
         const result = await prisma.$transaction(async (tx) => {
@@ -75,6 +93,11 @@ export async function cancelReservationAction(ticketIds: string[]): Promise<Canc
                 throw new Error(`INVALID_TICKETS:${invalidIds.join(",")}`);
             }
 
+            // Store affected event IDs for cache clearing
+            for (const ticket of tickets) {
+                affectedEventIds.add(ticket.eventId);
+            }
+
             // 2.2 Group by tier and event for counter updates
             const tierCounts = new Map<string, number>();
             const eventCounts = new Map<string, number>();
@@ -92,18 +115,32 @@ export async function cancelReservationAction(ticketIds: string[]): Promise<Canc
 
             // 2.4 Restore tier sold counts
             for (const [tierId, count] of tierCounts) {
-                await tx.ticketTier.update({
+                const currentTier = await tx.ticketTier.findUnique({
                     where: { id: tierId },
-                    data: { sold: { decrement: count } }
+                    select: { sold: true },
                 });
+                
+                if (currentTier && currentTier.sold >= count) {
+                    await tx.ticketTier.update({
+                        where: { id: tierId },
+                        data: { sold: { decrement: count } }
+                    });
+                }
             }
 
             // 2.5 Restore event ticketsSold counts
             for (const [eventId, count] of eventCounts) {
-                await tx.event.update({
+                const currentEvent = await tx.event.findUnique({
                     where: { id: eventId },
-                    data: { ticketsSold: { decrement: count } }
+                    select: { ticketsSold: true },
                 });
+                
+                if (currentEvent && currentEvent.ticketsSold >= count) {
+                    await tx.event.update({
+                        where: { id: eventId },
+                        data: { ticketsSold: { decrement: count } }
+                    });
+                }
             }
 
             return { cancelledCount: tickets.length, ticketIds: tickets.map(t => t.id) };
@@ -112,17 +149,16 @@ export async function cancelReservationAction(ticketIds: string[]): Promise<Canc
             isolationLevel: "Serializable"
         });
 
-        // ─── 3. Invalidate caches ────────────────────────────────────────────
-        // Get unique event IDs from the cancelled tickets
-        const eventsToRevalidate = await prisma.ticket.findMany({
-            where: { id: { in: ticketIds } },
-            select: { eventId: true },
-            distinct: ['eventId']
-        });
+        // ─── 3. Clear Redis cache for affected events ────────────────────────
+        for (const eventId of affectedEventIds) {
+            await clearEventCache(eventId);
+        }
 
+        // ─── 4. Invalidate Next.js caches ────────────────────────────────────
         revalidatePath("/tickets");
-        for (const event of eventsToRevalidate) {
-            revalidatePath(`/events/${event.eventId}`);
+        revalidatePath("/account/tickets");
+        for (const eventId of affectedEventIds) {
+            revalidatePath(`/events/${eventId}`);
         }
         revalidatePath("/events");
 

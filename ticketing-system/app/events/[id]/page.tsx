@@ -33,39 +33,56 @@ export default async function EventDetailPage({ params }: Props) {
 
     const event = result.data;
 
+    // Debug: Log the actual data from the server
+    console.log('🔍 EVENT DATA FROM SERVER:', {
+        id: event.id,
+        title: event.title,
+        ticketsSold: event.ticketsSold,
+        totalTickets: event.totalTickets,
+    });
+
     // Helper function to format date
     function formatEventDate(date: Date | string): string {
         const d = new Date(date);
         return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     }
 
+    // Calculate derived values
+    const ticketsSold = event.ticketsSold || 0;
+    const totalCapacity = event.totalTickets || 0;
+    const demand = totalCapacity > 0 ? Math.round((ticketsSold / totalCapacity) * 100) : 0;
+    const isHot = totalCapacity > 0 && (ticketsSold / totalCapacity) >= 0.8;
+    const isSoldOut = ticketsSold >= totalCapacity && totalCapacity > 0;
+
     // Transform the real event data to match what EventDetailClient expects
     const transformedEvent = {
         id: event.id,
         title: event.title,
-        artist: event.title, // Use title as artist name since schema doesn't have separate artist field
+        artist: event.title,
         description: event.description || '',
         image: event.imageUrl || '/placeholder-event.jpg',
+        imageUrl: event.imageUrl || undefined, // Convert null to undefined
         category: event.category,
-        tags: event.tags || [], // Add tags
+        tags: event.tags || [],
         venue: event.location,
+        location: event.location,
         city: event.city || 'TBD',
         date: event.startDate,
         dateLabel: formatEventDate(event.startDate),
         price: Math.min(...(event.ticketTiers?.map(t => t.price) || [0])),
         priceRange: event.ticketTiers?.map(t => t.price) || [],
-        soldCount: event.ticketsSold,
-        capacity: event.totalTickets,
-        totalCapacity: event.totalTickets, // Add totalCapacity
-        ticketsSold: event.ticketsSold, // Add ticketsSold
-        demand: event.totalTickets > 0 ? Math.round((event.ticketsSold / event.totalTickets) * 100) : 0,
-        isHot: event.totalTickets > 0 && (event.ticketsSold / event.totalTickets) >= 0.8,
-        isSoldOut: event.ticketsSold >= event.totalTickets,
-        ticketTiers: event.ticketTiers,
-        lineupActs: event.lineupActs,
-        instructions: event.instructions,
-        gstPercent: event.gstPercent,
-        serviceFeePercent: event.serviceFeePercent,
+        ticketsSold: ticketsSold,
+        soldCount: ticketsSold,
+        totalCapacity: totalCapacity,
+        capacity: totalCapacity,
+        demand: demand,
+        isHot: isHot,
+        isSoldOut: isSoldOut,
+        ticketTiers: event.ticketTiers || [],
+        lineupActs: event.lineupActs || [],
+        instructions: event.instructions || [],
+        gstPercent: event.gstPercent || 0,
+        serviceFeePercent: event.serviceFeePercent || 0,
         startDate: event.startDate,
         endDate: event.endDate,
         doorsOpen: event.doorsOpen,
@@ -74,6 +91,14 @@ export default async function EventDetailPage({ params }: Props) {
         parking: event.parking,
         venueNotes: event.venueNotes,
     };
+
+    // Debug: Log the transformed event
+    console.log('🔄 TRANSFORMED EVENT:', {
+        ticketsSold: transformedEvent.ticketsSold,
+        totalCapacity: transformedEvent.totalCapacity,
+        isSoldOut: transformedEvent.isSoldOut,
+        demand: transformedEvent.demand,
+    });
 
     // Fetch related events (same category, exclude current)
     const relatedEvents = await fetchRelatedEvents(event.category, event.id);
@@ -91,32 +116,29 @@ export default async function EventDetailPage({ params }: Props) {
     return <EventDetailClient event={transformedEvent} related={transformedRelated} />;
 }
 
-// Helper function to fetch related events
 // Helper function to fetch related events (only active/upcoming)
 async function fetchRelatedEvents(category: string, currentEventId: string) {
     const prisma = getPrisma();
     const now = new Date();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
     
     const events = await prisma.event.findMany({
         where: {
             category: category,
             id: { not: currentEventId },
             status: "PUBLISHED",
-            // Only fetch non-expired events
             OR: [
-                // Events that haven't started yet
                 { startDate: { gt: now } },
-                // Events that are currently ongoing (have endDate in the future)
                 { 
                     AND: [
                         { startDate: { lte: now } },
                         { endDate: { gt: now } }
                     ]
                 },
-                // Events with no endDate that are today or in the future
                 {
                     endDate: null,
-                    startDate: { gte: new Date(now.setHours(0, 0, 0, 0)) }
+                    startDate: { gte: todayStart }
                 }
             ]
         },
