@@ -136,7 +136,7 @@ export async function buyTicketAction(formData: FormData): Promise<BuyTicketResp
                 quantity,
                 gstPercent,
                 serviceFeePercent,
-                expiresInMinutes: 30/60,
+                expiresInMinutes: 10,
                 reservationId,
             },
             {

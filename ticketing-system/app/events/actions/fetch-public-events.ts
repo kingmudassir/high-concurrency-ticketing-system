@@ -84,6 +84,11 @@ export async function fetchPublicEvents({
         }
     ];
 
+    // ─── Category filter ───────────────────────────────────────────────────
+    if (category && category !== 'all') {
+        andConditions.push({ category: category });
+    }
+
     // ─── Search filter (title, location, city) ─────────────────────────────
     if (query) {
         andConditions.push({
@@ -149,12 +154,7 @@ export async function fetchPublicEvents({
         AND: andConditions
     };
 
-    // ─── Category filter ───────────────────────────────────────────────────
-    if (category && category !== 'all') {
-        where.category = category;
-    }
-
-    // ─── Price filter ─────────────────────────────────────────────────────
+    // ─── Price filter using ticketTiers ─────────────────────────────────────
     if (minPrice !== undefined || maxPrice !== undefined) {
         where.ticketTiers = {
             some: {
@@ -165,7 +165,7 @@ export async function fetchPublicEvents({
     }
 
     // ─── Build orderBy ─────────────────────────────────────────────────────
-    let orderBy: any = { createdAt: 'desc' };
+    let orderBy: any = { startDate: 'asc' };
     
     if (sort === 'trending' || sort === 'popular') {
         orderBy = { ticketsSold: 'desc' };
@@ -173,15 +173,13 @@ export async function fetchPublicEvents({
         orderBy = { startDate: 'asc' };
     } else if (sort === 'recent') {
         orderBy = { createdAt: 'desc' };
-    } else if (sort === 'price-low') {
-        orderBy = { startDate: 'asc' };
-    } else if (sort === 'price-high') {
-        orderBy = { startDate: 'asc' };
     }
 
     try {
+        // Get total count for pagination
         const totalCount = await prisma.event.count({ where });
         
+        // Fetch events
         const events = await prisma.event.findMany({
             where,
             include: {
@@ -201,7 +199,62 @@ export async function fetchPublicEvents({
             take: limit
         });
 
-        const formattedEvents = events.map(event => ({
+        // Calculate min price for each event (for price sorting, we need to re-sort)
+        let eventsWithMinPrice = events.map(event => ({
+            ...event,
+            minPrice: event.ticketTiers.length > 0 
+                ? Math.min(...event.ticketTiers.map(t => t.price))
+                : Infinity
+        }));
+
+        // Apply price sorting if needed
+        if (sort === 'price-low') {
+            eventsWithMinPrice.sort((a, b) => a.minPrice - b.minPrice);
+        } else if (sort === 'price-high') {
+            eventsWithMinPrice.sort((a, b) => b.minPrice - a.minPrice);
+        }
+
+        // For price sorting, we need to get total count for pagination
+        let finalEvents = eventsWithMinPrice;
+        let finalTotalCount = totalCount;
+        
+        // If price sorting is applied, get all events first then paginate
+        if (sort === 'price-low' || sort === 'price-high') {
+            // Get all events for price sorting
+            const allEvents = await prisma.event.findMany({
+                where,
+                include: {
+                    ticketTiers: {
+                        orderBy: { price: 'asc' },
+                        select: {
+                            id: true,
+                            name: true,
+                            price: true,
+                            capacity: true,
+                            sold: true,
+                        }
+                    }
+                }
+            });
+            
+            const allEventsWithPrice = allEvents.map(event => ({
+                ...event,
+                minPrice: event.ticketTiers.length > 0 
+                    ? Math.min(...event.ticketTiers.map(t => t.price))
+                    : Infinity
+            }));
+            
+            if (sort === 'price-low') {
+                allEventsWithPrice.sort((a, b) => a.minPrice - b.minPrice);
+            } else {
+                allEventsWithPrice.sort((a, b) => b.minPrice - a.minPrice);
+            }
+            
+            finalTotalCount = allEventsWithPrice.length;
+            finalEvents = allEventsWithPrice.slice(skip, skip + limit);
+        }
+
+        const formattedEvents = finalEvents.map(event => ({
             id: event.id,
             title: event.title,
             subtitle: event.subtitle,
@@ -224,15 +277,17 @@ export async function fetchPublicEvents({
             })),
         }));
 
+        const totalPages = Math.ceil(finalTotalCount / limit);
+
         const result = {
             success: true,
             data: formattedEvents,
             pagination: {
                 currentPage: page,
-                totalPages: Math.ceil(totalCount / limit),
-                totalItems: totalCount,
+                totalPages: totalPages,
+                totalItems: finalTotalCount,
                 itemsPerPage: limit,
-                hasNextPage: page * limit < totalCount,
+                hasNextPage: page * limit < finalTotalCount,
                 hasPrevPage: page > 1
             }
         };
