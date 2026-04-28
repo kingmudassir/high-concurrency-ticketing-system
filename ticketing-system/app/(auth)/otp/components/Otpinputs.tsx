@@ -19,10 +19,8 @@ export default function OTPInputs({ otp, setOtp, disabled }: OTPInputsProps) {
         if (disabled) return;
         const val = e.target.value;
 
-        // Allow only digits
         if (!/^\d*$/.test(val)) return;
 
-        // Handle paste of multiple digits into a single box
         if (val.length > 1) {
             const digits = val.split("").filter((_, i) => i < 6 - index);
             setOtp((prev) => {
@@ -49,10 +47,8 @@ export default function OTPInputs({ otp, setOtp, disabled }: OTPInputsProps) {
         switch (e.key) {
             case "Backspace":
                 if (otp[index]) {
-                    // Clear current box first
                     setOtp((prev) => prev.map((d, i) => (i === index ? "" : d)));
                 } else if (index > 0) {
-                    // Move back and clear previous box
                     setOtp((prev) => prev.map((d, i) => (i === index - 1 ? "" : d)));
                     focusIndex(index - 1);
                 }
@@ -75,7 +71,6 @@ export default function OTPInputs({ otp, setOtp, disabled }: OTPInputsProps) {
 
     const handleClick = (e: React.MouseEvent<HTMLInputElement>) => {
         if (disabled) return;
-        // Place cursor at end of input on click
         const input = e.currentTarget;
         setTimeout(() => input.setSelectionRange(input.value.length, input.value.length), 0);
     };
@@ -99,21 +94,23 @@ export default function OTPInputs({ otp, setOtp, disabled }: OTPInputsProps) {
     };
 
     return (
-        <div className="flex justify-between gap-2 mb-6">
+        <div className="flex justify-between gap-2 sm:gap-3 mb-8">
             {otp.map((digit, index) => (
                 <input
                     key={index}
                     type="text"
                     inputMode="numeric"
                     disabled={disabled}
-                    maxLength={6}
-                    ref={(el) => { inputRefs.current[index] = el; }}
+                    autoComplete="one-time-code"
+                    ref={(el) => {
+                        inputRefs.current[index] = el;
+                    }}
                     value={digit}
                     onChange={(e) => handleChange(e, index)}
                     onKeyDown={(e) => handleKeyDown(e, index)}
                     onClick={handleClick}
                     onPaste={(e) => handlePaste(e, index)}
-                    className="w-12 h-16 sm:w-14 sm:h-20 text-center text-2xl font-black bg-gray-50 border-2 border-transparent rounded-2xl focus:border-black focus:bg-white focus:ring-0 transition-all outline-none text-gray-900 cursor-text"
+                    className="w-10 h-14 sm:w-12 sm:h-16 text-center text-xl sm:text-2xl font-bold bg-zinc-50 border border-zinc-200 rounded-none focus:border-zinc-950 focus:bg-white focus:ring-1 focus:ring-emerald-500/20 transition-all outline-none text-zinc-950 font-mono disabled:opacity-50 disabled:cursor-not-allowed"
                 />
             ))}
         </div>

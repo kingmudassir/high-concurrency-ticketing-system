@@ -6,40 +6,44 @@ datasource db {
   provider = "postgresql"
 }
 
+// ─── USER ─────────────────────────────────────────────────────────────────────
+
 model User {
   id       String @id @default(cuid())
-  name     String
+  username String
   email    String @unique
   password String
-  tokens   Int    @default(0) // Internal currency for TicketRush
+  tokens   Int    @default(0)
 
-  // Account Status & Soft Delete
   status        UserStatus @default(ACTIVE)
   deletedAt     DateTime?
   reactivatedAt DateTime?
 
-  // Security & Lifecycle
   emailVerified DateTime?
   role          Role      @default(USER)
   lastLogin     DateTime?
   loginAttempts Int       @default(0)
   lockoutUntil  DateTime?
 
-  // Audit Trail
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
   tickets       Ticket[]
   authAuditLogs AuthAuditLog[]
   sessions      Session[]
 
-  //Verification
-  otp          String? // Store the hashed or plain 6-digit code
-  otpExpiresAt DateTime? // Crucial for security
+  otp          String?
+  otpExpiresAt DateTime?
+  savedEvents  SavedEvent[]
+
+  @@index([status])
+  @@index([role])
+  @@index([deletedAt])
+  @@index([lastLogin])
+  @@index([emailVerified])
+  @@index([status, role])
 }
 
-// New: The Session Table for Refresh Token Rotation
 model Session {
   id               String @id @default(cuid())
   refreshTokenHash String @unique
@@ -52,6 +56,26 @@ model Session {
 
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([userId, expiresAt])
+}
+
+model AuthAuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([action])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
 }
 
 enum UserStatus {
@@ -63,33 +87,148 @@ enum UserStatus {
 
 enum Role {
   USER
-  MODERATOR
-  SUPERADMIN
+  ADMIN
 }
 
-model AuthAuditLog {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  action    String
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime @default(now())
-}
+// ─── EVENT ────────────────────────────────────────────────────────────────────
 
 model Event {
-  id           String   @id @default(cuid())
-  title        String
-  description  String?
-  location     String
-  price        Int
-  totalTickets Int
-  ticketsSold  Int      @default(0)
-  startDate    DateTime
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  tickets      Ticket[]
+  id          String  @id @default(cuid())
+  title       String
+  subtitle    String?
+  description String?
+  imageUrl    String?
+
+  // Categorisation
+  category String
+  tags     String[]
+
+  // Location & Venue
+  location   String
+  address    String?
+  city       String?
+  transport  String?
+  parking    String?
+  venueNotes String?
+
+  // Timing
+  startDate DateTime
+  endDate   DateTime?
+  doorsOpen DateTime?
+
+  // Fees (stored as integer percentage, e.g. 17 = 17%)
+  gstPercent        Int @default(0)
+  serviceFeePercent Int @default(0)
+
+  // Entry instructions (each element = one bullet)
+  instructions String[]
+
+  // Denormalised aggregates for fast reads
+  totalTickets Int @default(0)
+  ticketsSold  Int @default(0)
+
+  status    EventStatus @default(DRAFT)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  tickets     Ticket[]
+  ticketTiers TicketTier[]
+  lineupActs  LineupAct[]
+  savedEvents SavedEvent[]
+
+  // Essential indexes for browsing and filtering
+  @@index([status])
+  @@index([category])
+  @@index([city])
+  @@index([startDate])
+  @@index([createdAt])
+  @@index([ticketsSold])
+  @@index([status, startDate])
+  @@index([status, category])
+  @@index([status, city])
+  @@index([category, city])
+  @@index([status, startDate, category])
+  @@index([title]) // For search functionality
 }
+
+// ─── SAVED EVENTS ──────────────────────────────────────────────────────────────
+
+model SavedEvent {
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, eventId])
+  @@index([userId])
+  @@index([eventId])
+  @@index([createdAt])
+  @@index([userId, createdAt])
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  ENDED
+}
+
+// ─── TICKET TIER ──────────────────────────────────────────────────────────────
+
+model TicketTier {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  price       Int
+  capacity    Int
+  sold        Int     @default(0)
+  sortOrder   Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tickets Ticket[]
+
+  @@index([eventId])
+  @@index([price])
+  @@index([eventId, sortOrder])
+  @@index([eventId, price])
+  @@index([sold])
+}
+
+// ─── LINEUP ACT ───────────────────────────────────────────────────────────────
+
+model LineupAct {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  name      String
+  role      LineupRole
+  startTime String?
+  sortOrder Int        @default(0)
+
+  @@index([eventId])
+  @@index([role])
+  @@index([eventId, sortOrder])
+  @@index([eventId, role])
+}
+
+enum LineupRole {
+  HEADLINER
+  SUPPORT
+  OPENER
+  SPECIAL_GUEST
+}
+
+// ─── TICKET ───────────────────────────────────────────────────────────────────
 
 model Ticket {
   id     String @id @default(cuid())
@@ -98,9 +237,28 @@ model Ticket {
   eventId String
   event   Event  @relation(fields: [eventId], references: [id])
 
+  tierId String
+  tier   TicketTier @relation(fields: [tierId], references: [id])
+
   userId String
   user   User   @relation(fields: [userId], references: [id])
 
+  // Snapshot prices at purchase time (tier price may change after)
+  pricePaid      Int
+  gstPaid        Int @default(0)
+  serviceFeePaid Int @default(0)
+
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([eventId])
+  @@index([tierId])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([createdAt])
+  @@index([userId, status])
+  @@index([eventId, status])
+  @@index([userId, eventId])
+  @@index([status, expiresAt])
 }

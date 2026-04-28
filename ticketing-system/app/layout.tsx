@@ -1,22 +1,27 @@
-// app/layout.tsx
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Providers from "./Global-Components/Providers";
+import Providers from "./globalcomponents/Providers";
+import NekoCursor from "./globalcomponents/Neko/NekoCursor";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+export const metadata: Metadata = {
+    title: "FluxTicket — High-Traffic Event Ticketing",
+    description:
+        "A distributed event ticketing system built for 10,000 concurrent users. Redis locking, BullMQ queues, zero race conditions.",
+};
 
-export const metadata: Metadata = { title: "TicketRush" };
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+    children,
+    }: {
+    children: React.ReactNode;
+    }) {
     return (
-        <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-            <body className="h-full flex flex-col">
-                <Providers>
-                    {children}
-                </Providers>
-            </body>
+        <html lang="en">
+        <body>
+            <Providers>
+                <NekoCursor />
+                {children}
+            </Providers>
+        </body>
         </html>
     );
 }

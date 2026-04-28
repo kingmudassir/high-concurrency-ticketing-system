@@ -1,27 +1,33 @@
-// app/admin/layout.tsx
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "../actions/getuser/getUser";
+import Sidebar from "./components/Sidebar";
+import Topbar from "./components/Topbar";
+import { Toaster } from "sonner";
 
-import Sidebar from "./_components/Sidebar";
+export default async function AdminLayout({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+    const { success, user } = await getCurrentUser()
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+    if (!success || user?.role !== "ADMIN") {
+        redirect("/login");
+    }
+
     return (
-        <div className="flex bg-[#fafafa] min-h-screen">
-        <Sidebar />
-        <main className="flex-1">
-            <header className="h-20 border-b border-gray-100 bg-white/80 backdrop-blur-md sticky top-0 z-10 px-8 flex items-center justify-between">
-            <h2 className="text-sm font-black uppercase tracking-widest text-gray-400">
-                Admin Management Console
-            </h2>
-            
-            <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2 px-3 py-1 bg-green-50 text-green-600 rounded-full border border-green-100 text-xs font-bold">
-                <span className="w-2 h-2 bg-green-500 rounded-full" />
-                REDIS CLUSTER: ONLINE
-                </div>
-                <div className="w-10 h-10 rounded-full bg-gray-900 border-2 border-white shadow-sm" />
+        <div className="flex h-screen bg-zinc-50 overflow-hidden">
+            {/* Sidebar */}
+            <Sidebar user={user} />
+
+            {/* Main Content */}
+            <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+                <Topbar />
+                <main className="flex-1 overflow-y-auto">
+                    {children}
+                    <Toaster position="bottom-right" richColors />
+                </main>
             </div>
-            </header>
-            <div className="p-8">{children}</div>
-        </main>
         </div>
     );
 }

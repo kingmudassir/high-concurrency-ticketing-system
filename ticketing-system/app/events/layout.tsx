@@ -1,20 +1,14 @@
-import { getCurrentUser } from "../actions/get-current-user";
-import Footer from "../Global-Components/Footer";
-import NavbarLogin from "../Global-Components/NavbarLogin";
-import Navbar from "./components/Navbar";
+import RushNavbar from '../globalcomponents/Navbar/Navbar';
+import Footer from '../(landing)/components/Footer';
 
-export default async function EventsLayout({ children }: { children: React.ReactNode }) {
-    const { success, user } = await getCurrentUser();
-
+export default function EventsLayout({ children }: { children: React.ReactNode }) {
     return (
-        <div className="flex flex-col min-h-screen">
-
-            {success && user ? <NavbarLogin user={user} /> : <Navbar />}
-            {/* The 'grow' now actually works to push the footer down */}
-            <main className="grow bg-white">
-                {children}
-            </main>
-            <Footer />
-        </div>
+        <>
+        <RushNavbar />
+        <main className="min-h-screen bg-zinc-50 pt-16">
+            {children}
+        </main>
+        <Footer />
+        </>
     );
 }
